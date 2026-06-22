@@ -49,14 +49,14 @@ export class Otp {
   @Column({
     name: 'otpCode',
     type: 'varchar',
-    length: 4,
+    length: 6,
   })
   otpCode: string;
 
   @Column({
     name: 'otpLimit',
     type: 'int',
-    default: 2,
+    default: 3,
   })
   otpLimit: number;
 
