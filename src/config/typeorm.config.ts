@@ -2,6 +2,7 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 import dotenv from 'dotenv';
 import { User } from '../database/entities/user.entity';
 import { Role } from '../database/entities/role.entity';
+import { Otp } from '../database/entities/otp.entity';
 
 dotenv.config();
 export const typeOrmConfig: DataSourceOptions = {
@@ -11,7 +12,7 @@ export const typeOrmConfig: DataSourceOptions = {
   username: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
   database: process.env.POSTGRES_DB,
-  entities: [User, Role],
+  entities: [User, Role, Otp],
   migrations: [__dirname + '/../database/migrations/*.{ts,js}'],
 
   synchronize: false,
