@@ -1,0 +1,41 @@
+import {
+  Controller,
+  Post,
+  Body,
+  InternalServerErrorException,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+import { AuthService } from './services/auth.service';
+import { SendOtpDto } from './dto/send-otp.dto';
+import { SendOtpSwagger } from './decorators/swagger/send-otp.decorator';
+import { AuthMessages } from './constants/auth.constants';
+
+@ApiTags('Auth')
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Post('send-otp')
+  @SendOtpSwagger()
+  async sendOtp(@Body() sendOtpDto: SendOtpDto) {
+    try {
+      return await this.authService.sendOtp(sendOtpDto);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      if (
+        message.startsWith(AuthMessages.OTP_THROTTLED) ||
+        message.startsWith(AuthMessages.TOO_MANY_ATTEMPTS)
+      ) {
+        throw new HttpException({ message }, HttpStatus.TOO_MANY_REQUESTS);
+      }
+
+      console.error('Error occurred: ', error);
+      throw new InternalServerErrorException({
+        message: AuthMessages.UNEXPECTED_ERROR,
+      });
+    }
+  }
+}
