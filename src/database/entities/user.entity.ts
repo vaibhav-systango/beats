@@ -1,18 +1,27 @@
 import {
   Entity,
   Column,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
+  BeforeInsert,
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
 import { Role } from './role.entity';
+import { ulid } from 'ulid';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryColumn('char', { length: 26 })
+  id: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = ulid();
+    }
+  }
 
   @Column()
   name: string;
