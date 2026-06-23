@@ -10,6 +10,8 @@ import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from './services/auth.service';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { SendOtpSwagger } from './decorators/swagger/send-otp.decorator';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { VerifyOtpSwagger } from './decorators/swagger/verify-otp.decorator';
 import { AuthMessages } from './constants/auth.constants';
 
 @ApiTags('Auth')
@@ -30,6 +32,28 @@ export class AuthController {
         message.startsWith(AuthMessages.TOO_MANY_ATTEMPTS)
       ) {
         throw new HttpException({ message }, HttpStatus.TOO_MANY_REQUESTS);
+      }
+
+      console.error('Error occurred: ', error);
+      throw new InternalServerErrorException({
+        message: AuthMessages.UNEXPECTED_ERROR,
+      });
+    }
+  }
+
+  @Post('verify-otp')
+  @VerifyOtpSwagger()
+  async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
+    try {
+      return await this.authService.verifyOtp(verifyOtpDto);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      if (
+        message === AuthMessages.INVALID_OTP ||
+        message === AuthMessages.OTP_EXPIRED
+      ) {
+        throw new HttpException({ message }, HttpStatus.BAD_REQUEST);
       }
 
       console.error('Error occurred: ', error);
