@@ -153,7 +153,6 @@ export class OtpHelper {
 
     if (rec.otpCode !== otpCode) {
       rec.failedAttempts += 1;
-      console.log(rec.failedAttempts, maxGuesses);
       if (rec.failedAttempts >= maxGuesses) {
         throw new Error(AuthMessages.TOO_MANY_GUESSES);
       } else {
