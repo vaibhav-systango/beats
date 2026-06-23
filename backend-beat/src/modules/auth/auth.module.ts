@@ -9,7 +9,7 @@ import { DatabaseModule } from '../../database/database.module';
     DatabaseModule,
     JwtModule.register({
       global: true,
-      secret: process.env.JWT_SECRET || 'fallback_secret',
+      secret: process.env.JWT_SECRET,
     }),
   ],
   controllers: [AuthController],

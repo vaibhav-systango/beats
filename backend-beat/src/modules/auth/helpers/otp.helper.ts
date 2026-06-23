@@ -94,6 +94,7 @@ export class OtpHelper {
         const newCode = this.generateOtpCode();
         rec.otpCode = newCode;
         rec.otpLimit = Math.max(0, rec.otpLimit - 1);
+        rec.failedAttempts = 0; // Reset failed attempts on resend
         rec.updatedAt = now;
         await otpRepo.save(rec);
 
@@ -117,6 +118,7 @@ export class OtpHelper {
     newOtp.purpose = purpose;
     newOtp.otpCode = otpCode;
     newOtp.otpLimit = otpLimit;
+    newOtp.failedAttempts = 0;
     newOtp.createdAt = now;
     newOtp.updatedAt = now;
 
@@ -134,6 +136,7 @@ export class OtpHelper {
     purpose: OtpPurpose,
     otpCode: string,
     validityDuration: number,
+    maxGuesses: number,
   ): Promise<boolean> {
     const rec = await otpRepo.findOne({
       where: { countryCode, phoneNumber, accountType, purpose },
@@ -144,13 +147,19 @@ export class OtpHelper {
     }
 
     const codeExpired = this.isOtpCodeExpired(rec, validityDuration);
-    console.log(codeExpired);
     if (codeExpired) {
       throw new Error(AuthMessages.OTP_EXPIRED);
     }
 
     if (rec.otpCode !== otpCode) {
-      throw new Error(AuthMessages.INVALID_OTP);
+      rec.failedAttempts += 1;
+      console.log(rec.failedAttempts, maxGuesses);
+      if (rec.failedAttempts >= maxGuesses) {
+        throw new Error(AuthMessages.TOO_MANY_GUESSES);
+      } else {
+        await otpRepo.save(rec);
+        throw new Error(AuthMessages.INVALID_OTP);
+      }
     }
 
     // On successful verification, delete the OTP record

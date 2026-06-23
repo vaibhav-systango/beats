@@ -60,6 +60,7 @@ export class AuthService {
       purpose,
       otpCode,
       AuthConstants.OTP_VALIDITY_DURATION_MS,
+      AuthConstants.MAX_OTP_GUESSES,
     );
 
     if (!user) {

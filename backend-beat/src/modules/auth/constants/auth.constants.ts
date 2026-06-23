@@ -4,6 +4,8 @@ export const AuthMessages = {
   OTP_THROTTLED: 'Please wait before requesting a new OTP.',
   TOO_MANY_ATTEMPTS:
     'Maximum OTP request attempts reached. Please try again later.',
+  TOO_MANY_GUESSES:
+    'Maximum OTP verification attempts reached. Please request a new OTP.',
   INVALID_OTP: 'Invalid OTP provided.',
   OTP_EXPIRED: 'OTP has expired.',
   ROLE_NOT_FOUND: 'Role not found.',
@@ -18,6 +20,7 @@ export const AuthConstants = {
   OTP_THROTTLE_DURATION_MS:
     Number(process.env.OTP_THROTTLE_DURATION_MS) || 30 * 1000,
   MAX_OTP_ATTEMPTS: Number(process.env.MAX_OTP_ATTEMPTS) || 3,
+  MAX_OTP_GUESSES: Number(process.env.MAX_OTP_GUESSES) || 3,
   OTP_LENGTH: Number(process.env.OTP_LENGTH) || 6,
   ACCESS_TOKEN_EXPIRY: process.env.ACCESS_TOKEN_EXPIRY || '15m',
   REFRESH_TOKEN_EXPIRY: process.env.REFRESH_TOKEN_EXPIRY || '30d',

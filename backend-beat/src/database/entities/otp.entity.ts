@@ -61,6 +61,13 @@ export class Otp {
   otpLimit: number;
 
   @Column({
+    name: 'failedAttempts',
+    type: 'int',
+    default: 0,
+  })
+  failedAttempts: number;
+
+  @Column({
     name: 'createdAt',
     type: 'bigint',
   })

@@ -56,6 +56,13 @@ export class AuthController {
         throw new HttpException({ message }, HttpStatus.BAD_REQUEST);
       }
 
+      if (
+        message.startsWith(AuthMessages.TOO_MANY_ATTEMPTS) ||
+        message.startsWith(AuthMessages.TOO_MANY_GUESSES)
+      ) {
+        throw new HttpException({ message }, HttpStatus.TOO_MANY_REQUESTS);
+      }
+
       console.error('Error occurred: ', error);
       throw new InternalServerErrorException({
         message: AuthMessages.UNEXPECTED_ERROR,
