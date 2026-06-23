@@ -5,7 +5,8 @@ import { AuthConstants, AuthMessages } from '../constants/auth.constants';
 import { OtpHelper } from '../helpers/otp.helper';
 import { UserRepository } from '../../../database/repositories/user.repository';
 import { OtpRepository } from '../../../database/repositories/otp.repository';
-import { OtpPurpose } from '../../../common/enums/otp.enums';
+import { OtpPurpose, DeliveryMethod } from '../../../common/enums/otp.enums';
+import { TwilioOtpProvider } from '../../../providers/twilio-otp.provider';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { Role } from '../../../database/entities/role.entity';
 import { User } from '../../../database/entities/user.entity';
@@ -16,10 +17,11 @@ export class AuthService {
     private readonly userRepository: UserRepository,
     private readonly otpRepository: OtpRepository,
     private readonly jwtService: JwtService,
+    private readonly twilioOtpProvider: TwilioOtpProvider,
   ) {}
 
   async sendOtp(dto: SendOtpDto) {
-    const { countryCode, phoneNumber, accountType } = dto;
+    const { countryCode, phoneNumber, accountType, deliveryMethod } = dto;
 
     const user = await this.userRepository.findByPhoneAndRole(
       phoneNumber,
@@ -37,8 +39,18 @@ export class AuthService {
       AuthConstants.OTP_BLOCK_DURATION_MS,
       AuthConstants.OTP_THROTTLE_DURATION_MS,
       async (payload) => {
-        // Delivery logic will go here
-        // For testing, we are returning the OTP in the response, so no need to log it unless needed
+        const fullPhoneNumber = `${payload.countryCode}${payload.phoneNumber}`;
+        if (deliveryMethod === DeliveryMethod.SMS) {
+          await this.twilioOtpProvider.sendSmsOtp(
+            fullPhoneNumber,
+            payload.otpCode,
+          );
+        } else if (deliveryMethod === DeliveryMethod.VOICE) {
+          await this.twilioOtpProvider.sendVoiceOtp(
+            fullPhoneNumber,
+            payload.otpCode,
+          );
+        }
       },
     );
   }

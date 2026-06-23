@@ -8,11 +8,20 @@ export function SendOtpSwagger() {
     ApiBody({
       type: SendOtpDto,
       examples: {
-        'Valid Request': {
+        'Valid Request (SMS)': {
           value: {
             countryCode: '+91',
             phoneNumber: '9876543210',
             accountType: 'USER',
+            deliveryMethod: 'SMS',
+          },
+        },
+        'Valid Request (Voice)': {
+          value: {
+            countryCode: '+91',
+            phoneNumber: '9876543210',
+            accountType: 'USER',
+            deliveryMethod: 'VOICE',
           },
         },
       },

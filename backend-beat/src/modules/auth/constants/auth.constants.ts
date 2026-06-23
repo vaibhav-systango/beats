@@ -10,8 +10,14 @@ export const AuthMessages = {
   OTP_EXPIRED: 'OTP has expired.',
   ROLE_NOT_FOUND: 'Role not found.',
   UNEXPECTED_ERROR: 'An unexpected error occurred. Please try again later.',
+  TWILIO_UNVERIFIED_NUMBER:
+    'This number is unverified. As we are using a Twilio trial account, we cannot send messages/calls to unverified numbers.',
+  TWILIO_GEO_PERMISSION:
+    'Geo Permission Error: We are currently unable to send messages to your region due to account restrictions.',
+  TWILIO_LIMIT_REACHED: 'Service limits reached. Please try again later.',
+  TWILIO_INVALID_NUMBER: 'The phone number provided is invalid.',
+  TWILIO_GENERIC_ERROR: 'Failed to deliver OTP. Please try again later.',
 };
-
 export const AuthConstants = {
   OTP_BLOCK_DURATION_MS:
     Number(process.env.OTP_BLOCK_DURATION_MS) || 60 * 60 * 1000,

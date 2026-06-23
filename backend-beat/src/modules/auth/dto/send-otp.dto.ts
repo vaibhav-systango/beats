@@ -1,6 +1,7 @@
 import { IsEnum, IsNotEmpty, IsString, Length } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '../../../common/enums/user.enums';
+import { DeliveryMethod } from '../../../common/enums/otp.enums';
 
 export class SendOtpDto {
   @ApiProperty({ example: '+91', description: 'Country code' })
@@ -22,4 +23,13 @@ export class SendOtpDto {
   @IsEnum(UserRole)
   @IsNotEmpty()
   accountType: UserRole;
+
+  @ApiProperty({
+    enum: DeliveryMethod,
+    example: DeliveryMethod.SMS,
+    description: 'Method to deliver the OTP',
+  })
+  @IsEnum(DeliveryMethod)
+  @IsNotEmpty()
+  deliveryMethod: DeliveryMethod;
 }

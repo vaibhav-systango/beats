@@ -54,7 +54,7 @@ export class OtpHelper {
     blockDuration: number,
     throttleDuration: number,
     deliver: OtpDelivery,
-  ): Promise<{ message: string; otp: string }> {
+  ): Promise<{ message: string }> {
     const now = Date.now();
 
     const rec = await otpRepo.findOne({
@@ -105,7 +105,7 @@ export class OtpHelper {
           accountType,
           purpose,
         });
-        return { message: AuthMessages.OTP_RESENT, otp: newCode };
+        return { message: AuthMessages.OTP_RESENT };
       }
     }
 
@@ -125,7 +125,7 @@ export class OtpHelper {
     await otpRepo.save(newOtp);
 
     await deliver({ otpCode, countryCode, phoneNumber, accountType, purpose });
-    return { message: AuthMessages.OTP_SENT, otp: otpCode };
+    return { message: AuthMessages.OTP_SENT };
   }
 
   static async verifyOtpForPurpose(
