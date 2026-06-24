@@ -1,6 +1,7 @@
 import { IsEnum, IsNotEmpty, IsString, Length } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '../../../common/enums/user.enums';
+import { IsValidPhoneNumber } from '../decorators/is-valid-phone-number.decorator';
 
 export class VerifyOtpDto {
   @ApiProperty({ example: '+91', description: 'Country code' })
@@ -11,7 +12,7 @@ export class VerifyOtpDto {
   @ApiProperty({ example: '9876543210', description: 'Phone number' })
   @IsString()
   @IsNotEmpty()
-  @Length(10, 15)
+  @IsValidPhoneNumber()
   phoneNumber: string;
 
   @ApiProperty({

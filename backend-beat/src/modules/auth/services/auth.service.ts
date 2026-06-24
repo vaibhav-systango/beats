@@ -50,6 +50,10 @@ export class AuthService {
             fullPhoneNumber,
             payload.otpCode,
           );
+        } else {
+          throw new InternalServerErrorException(
+            AuthMessages.UNSUPPORTED_DELIVERY_METHOD,
+          );
         }
       },
     );

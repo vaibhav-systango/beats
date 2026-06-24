@@ -17,6 +17,7 @@ export const AuthMessages = {
   TWILIO_LIMIT_REACHED: 'Service limits reached. Please try again later.',
   TWILIO_INVALID_NUMBER: 'The phone number provided is invalid.',
   TWILIO_GENERIC_ERROR: 'Failed to deliver OTP. Please try again later.',
+  UNSUPPORTED_DELIVERY_METHOD: 'Unsupported delivery method',
 };
 export const AuthConstants = {
   OTP_BLOCK_DURATION_MS:

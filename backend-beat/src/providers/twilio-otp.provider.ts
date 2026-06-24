@@ -35,11 +35,16 @@ export class TwilioOtpProvider {
     }
 
     try {
-      await this.twilioClient.messages.create({
+      const message = await this.twilioClient.messages.create({
         body: `Your verification code is: ${otp}`,
         from: this.fromPhoneNumber,
         to: phoneNumber,
       });
+
+      if (message.status === 'failed' || message.status === 'undelivered') {
+        throw new Error(`Message status is ${message.status}`);
+      }
+
       this.logger.log(`OTP SMS sent successfully to ${phoneNumber}`);
     } catch (error) {
       this.handleTwilioError(error);
@@ -58,12 +63,17 @@ export class TwilioOtpProvider {
       // Splitting OTP with spaces ensures the Voice synthesis reads it character by character
       const spokenOtp = otp.split('').join(' ');
 
-      await this.twilioClient.calls.create({
+      const call = await this.twilioClient.calls.create({
         // Added a 2-second pause and a loop to ensure the OTP is heard after the Twilio trial greeting
         twiml: `<Response><Pause length="2"/><Say loop="3">Your verification code is ${spokenOtp}. I repeat, ${spokenOtp}.</Say></Response>`,
         from: this.fromPhoneNumber,
         to: phoneNumber,
       });
+
+      if (call.status === 'failed' || call.status === 'canceled') {
+        throw new Error(`Call status is ${call.status}`);
+      }
+
       this.logger.log(
         `OTP Voice Call initiated successfully to ${phoneNumber}`,
       );
