@@ -25,6 +25,10 @@ export class AuthController {
     try {
       return await this.authService.sendOtp(sendOtpDto);
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       const message = error instanceof Error ? error.message : String(error);
 
       if (
@@ -47,6 +51,10 @@ export class AuthController {
     try {
       return await this.authService.verifyOtp(verifyOtpDto);
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       const message = error instanceof Error ? error.message : String(error);
 
       if (

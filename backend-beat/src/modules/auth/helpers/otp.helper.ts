@@ -54,7 +54,7 @@ export class OtpHelper {
     blockDuration: number,
     throttleDuration: number,
     deliver: OtpDelivery,
-  ): Promise<{ message: string; otp: string }> {
+  ): Promise<{ message: string }> {
     const now = Date.now();
 
     const rec = await otpRepo.findOne({
@@ -92,11 +92,6 @@ export class OtpHelper {
         });
       } else {
         const newCode = this.generateOtpCode();
-        rec.otpCode = newCode;
-        rec.otpLimit = Math.max(0, rec.otpLimit - 1);
-        rec.failedAttempts = 0; // Reset failed attempts on resend
-        rec.updatedAt = now;
-        await otpRepo.save(rec);
 
         await deliver({
           otpCode: newCode,
@@ -105,11 +100,20 @@ export class OtpHelper {
           accountType,
           purpose,
         });
-        return { message: AuthMessages.OTP_RESENT, otp: newCode };
+
+        rec.otpCode = newCode;
+        rec.otpLimit = Math.max(0, rec.otpLimit - 1);
+        rec.failedAttempts = 0; // Reset failed attempts on resend
+        rec.updatedAt = now;
+        await otpRepo.save(rec);
+
+        return { message: AuthMessages.OTP_RESENT };
       }
     }
 
     const otpCode = this.generateOtpCode();
+
+    await deliver({ otpCode, countryCode, phoneNumber, accountType, purpose });
 
     const newOtp = new Otp();
     newOtp.countryCode = countryCode;
@@ -124,8 +128,7 @@ export class OtpHelper {
 
     await otpRepo.save(newOtp);
 
-    await deliver({ otpCode, countryCode, phoneNumber, accountType, purpose });
-    return { message: AuthMessages.OTP_SENT, otp: otpCode };
+    return { message: AuthMessages.OTP_SENT };
   }
 
   static async verifyOtpForPurpose(
