@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import { User } from '../database/entities/user.entity';
 import { Role } from '../database/entities/role.entity';
 import { Otp } from '../database/entities/otp.entity';
+import { EventCategory } from '../database/entities/event-category.entities';
+import { Event } from '../database/entities/event.entity';
 
 dotenv.config();
 export const typeOrmConfig: DataSourceOptions = {
@@ -12,7 +14,7 @@ export const typeOrmConfig: DataSourceOptions = {
   username: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
   database: process.env.POSTGRES_DB,
-  entities: [User, Role, Otp],
+  entities: [User, Role, Otp, EventCategory,Event],
   migrations: [__dirname + '/../database/migrations/*.{ts,js}'],
 
   synchronize: false,
