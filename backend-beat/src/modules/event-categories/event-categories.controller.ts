@@ -13,6 +13,7 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 
@@ -33,6 +34,8 @@ import { UlidValidationPipe } from 'src/common/pipes/ulid-validation.pipe';
 @ApiTags('Event Categories')
 @Controller('event-categories')
 export class EventCategoriesController {
+  private readonly logger = new Logger(EventCategoriesController.name);
+
   constructor(private readonly eventCategoryService: EventCategoryService) {}
 
   @Post()
@@ -49,7 +52,7 @@ export class EventCategoriesController {
         throw error;
       }
 
-      console.error('Error occurred:', error);
+       this.logger.error('Error occurred:', error);
       throw new InternalServerErrorException({
         message: EventCategoryMessages.UNEXPECTED_ERROR,
       });
@@ -62,7 +65,7 @@ export class EventCategoriesController {
     try {
       return await this.eventCategoryService.getEventCategories(query);
     } catch (error) {
-      console.error('Error occurred:', error);
+       this.logger.error('Error occurred:', error);
       throw new InternalServerErrorException({
         message: EventCategoryMessages.UNEXPECTED_ERROR,
       });
@@ -79,7 +82,7 @@ export class EventCategoriesController {
         throw error;
       }
 
-      console.error('Error occurred:', error);
+      this.logger.error('Error occurred:', error);
       throw new InternalServerErrorException({
         message: EventCategoryMessages.UNEXPECTED_ERROR,
       });
@@ -100,7 +103,7 @@ export class EventCategoriesController {
         throw error;
       }
 
-      console.error('Error occurred:', error);
+      this.logger.error('Error occurred:', error);
       throw new InternalServerErrorException({
         message: EventCategoryMessages.UNEXPECTED_ERROR,
       });
@@ -120,7 +123,7 @@ export class EventCategoriesController {
         throw error;
       }
 
-      console.error('Error occurred:', error);
+      this.logger.error('Error occurred:', error);
       throw new InternalServerErrorException({
         message: EventCategoryMessages.UNEXPECTED_ERROR,
       });
