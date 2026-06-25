@@ -74,6 +74,9 @@ importers:
       '@beat/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@beat/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@beat/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -129,6 +132,9 @@ importers:
       '@beat/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@beat/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@beat/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -184,6 +190,9 @@ importers:
       '@beat/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@beat/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@beat/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -193,9 +202,12 @@ importers:
       '@beat/utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      '@tanstack/react-query':
-        specifier: ^5.62.0
-        version: 5.101.1(react@18.3.1)
+      class-variance-authority:
+        specifier: ^0.7.0
+        version: 0.7.1
+      lucide-react:
+        specifier: ^0.487.0
+        version: 0.487.0(react@18.3.1)
       next:
         specifier: ^14.2.0
         version: 14.2.35(@babel/core@7.29.7)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.101.0)
@@ -205,9 +217,6 @@ importers:
       react-dom:
         specifier: ^18.3.0
         version: 18.3.1(react@18.3.1)
-      zustand:
-        specifier: ^5.0.0
-        version: 5.0.14(@types/react@18.3.31)(react@18.3.1)
     devDependencies:
       '@types/node':
         specifier: ^20.17.0
@@ -239,12 +248,40 @@ importers:
       '@beat/types':
         specifier: workspace:*
         version: link:../types
-      '@beat/utils':
-        specifier: workspace:*
-        version: link:../utils
+      '@tanstack/react-query':
+        specifier: ^5.62.0
+        version: 5.101.1(react@18.3.1)
       axios:
         specifier: ^1.7.0
         version: 1.18.1
+      react:
+        specifier: ^18.3.0
+        version: 18.3.1
+
+  packages/core:
+    dependencies:
+      '@beat/api-client':
+        specifier: workspace:*
+        version: link:../api-client
+      '@beat/types':
+        specifier: workspace:*
+        version: link:../types
+      '@tanstack/react-query':
+        specifier: ^5.62.0
+        version: 5.101.1(react@18.3.1)
+      react:
+        specifier: ^18.3.0
+        version: 18.3.1
+      react-router-dom:
+        specifier: ^6.28.0
+        version: 6.30.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      zustand:
+        specifier: ^5.0.0
+        version: 5.0.14(@types/react@18.3.31)(react@18.3.1)
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
 
   packages/types: {}
 
@@ -273,14 +310,7 @@ importers:
         specifier: ^18.3.0
         version: 18.3.7(@types/react@18.3.31)
 
-  packages/utils:
-    dependencies:
-      '@beat/types':
-        specifier: workspace:*
-        version: link:../types
-      zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+  packages/utils: {}
 
 packages:
 
@@ -4419,6 +4449,11 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
+  lucide-react@0.487.0:
+    resolution: {integrity: sha512-aKqhOQ+YmFnwq8dWgGjOuLc8V1R9/c/yOd+zDY4+ohsR2Jo05lSGc3WsstYPIzcTpeosN7LoCkLReUUITvaIvw==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   luxon@3.7.2:
     resolution: {integrity: sha512-vtEhXh/gNjI9Yg1u4jX/0YVPMvxzHuGgCm6tC5kZyb08yjGWGnqAjGJvcXbqQR2P3MyMEFnRbpcdFS6PBcLqew==}
     engines: {node: '>=12'}
@@ -6274,9 +6309,6 @@ packages:
   yocto-queue@1.2.2:
     resolution: {integrity: sha512-4LCcse/U2MHZ63HAJVE+v71o7yOdIe4cZ70Wpf8D/IyjDKYQLV5GD46B+hSTjJsvV5PztjvHoU580EftxjDZFQ==}
     engines: {node: '>=12.20'}
-
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
   zustand@5.0.14:
     resolution: {integrity: sha512-/8tAspM5LMPr28b3fwLYrtdj77ECpfZviaP75CMTnwO8ISyaE4GDIG/9rDDYq/cH9D2Xw2A2RXglLInmVBQB/g==}
@@ -11382,6 +11414,10 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
+  lucide-react@0.487.0(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+
   luxon@3.7.2: {}
 
   magic-string@0.30.21:
@@ -13446,8 +13482,6 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   yocto-queue@1.2.2: {}
-
-  zod@3.25.76: {}
 
   zustand@5.0.14(@types/react@18.3.31)(react@18.3.1):
     optionalDependencies:

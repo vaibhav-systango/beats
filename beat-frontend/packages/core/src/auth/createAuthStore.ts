@@ -1,3 +1,4 @@
+import { clearAuthSession } from '@beat/api-client'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User } from '@beat/types'
@@ -5,10 +6,13 @@ import type { User } from '@beat/types'
 export interface AuthState {
   user: User | null
   isAuthenticated: boolean
+  needsOnboarding: boolean
 }
 
 export interface AuthActions {
-  setUser: (user: User) => void
+  login: (user: User, needsOnboarding: boolean) => void
+  completeOnboarding: () => void
+  updateUser: (updates: Partial<User>) => void
   clearAuth: () => void
 }
 
@@ -17,13 +21,31 @@ export type AuthStore = AuthState & AuthActions
 export function createAuthStore(storageKey: string) {
   return create<AuthStore>()(
     persist(
-      (set) => ({
+      (set, get) => ({
         user: null,
         isAuthenticated: false,
-        setUser: (user) => set({ user, isAuthenticated: true }),
-        clearAuth: () => set({ user: null, isAuthenticated: false }),
+        needsOnboarding: false,
+        login: (user, needsOnboarding) =>
+          set({ user, isAuthenticated: true, needsOnboarding }),
+        completeOnboarding: () => set({ needsOnboarding: false }),
+        updateUser: (updates) => {
+          const currentUser = get().user
+          if (!currentUser) return
+          set({ user: { ...currentUser, ...updates } })
+        },
+        clearAuth: () => {
+          clearAuthSession()
+          set({ user: null, isAuthenticated: false, needsOnboarding: false })
+        },
       }),
-      { name: storageKey }
+      {
+        name: storageKey,
+        partialize: (state) => ({
+          user: state.user,
+          isAuthenticated: state.isAuthenticated,
+          needsOnboarding: state.needsOnboarding,
+        }),
+      }
     )
   )
 }
