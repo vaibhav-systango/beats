@@ -22,6 +22,15 @@ export class EventCategoryService {
   ) {}
 
   async createEventCategory(dto: CreateEventCategoryDto) {
+    const deleted = await this.eventCategoryRepository.findDeletedByName(dto.name);
+
+    if (deleted) {
+      deleted.name = dto.name.trim();
+      deleted.description = dto.description?.trim() || undefined;
+      deleted.isDeleted = false;
+      return this.eventCategoryRepository.save(deleted);
+    }
+
     await this.assertNameIsUnique(dto.name);
 
     const category = this.eventCategoryRepository.create({

@@ -25,6 +25,14 @@ export class EventCategoryRepository extends Repository<EventCategory> {
     return (await qb.getCount()) > 0;
   }
 
+  async findDeletedByName(name: string): Promise<EventCategory | null> {
+    const normalized = name.trim().toLowerCase();
+    return this.createQueryBuilder('category')
+      .where('LOWER(category.name) = :name', { name: normalized })
+      .andWhere('category.is_deleted = true')
+      .getOne();
+  }
+
   async findAllOrdered(limit: number, offset: number): Promise<[EventCategory[], number]> {
     return this.findAndCount({
       where: { isDeleted: false },
