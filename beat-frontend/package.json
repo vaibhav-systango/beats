@@ -1,0 +1,43 @@
+{
+  "name": "beat-frontend",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "nx run-many -t serve --projects=user,organiser,admin --parallel=3",
+    "dev:user": "nx serve user",
+    "dev:organiser": "nx serve organiser",
+    "dev:admin": "nx serve admin",
+    "build": "nx run-many -t build --projects=user,organiser,admin",
+    "build:user": "nx build user",
+    "build:organiser": "nx build organiser",
+    "build:admin": "nx build admin",
+    "start:user": "nx start user",
+    "preview:organiser": "nx preview organiser",
+    "preview:admin": "nx preview admin",
+    "lint": "nx run-many -t lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "devDependencies": {
+    "@nx/eslint": "20.4.0",
+    "@nx/eslint-plugin": "20.4.0",
+    "@nx/js": "20.4.0",
+    "@nx/next": "20.4.0",
+    "@nx/react": "20.4.0",
+    "@nx/vite": "20.4.0",
+    "@types/node": "^20.17.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "nx": "20.4.0",
+    "prettier": "^3.4.0",
+    "tslib": "^2.8.0",
+    "typescript": "^5.7.0"
+  }
+}

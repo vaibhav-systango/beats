@@ -1,0 +1,31 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "es2015",
+    "module": "esnext",
+    "lib": ["es2020", "dom"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": ".",
+    "strict": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@beat/ui": ["packages/ui/src/index.ts"],
+      "@beat/types": ["packages/types/src/index.ts"],
+      "@beat/utils": ["packages/utils/src/index.ts"],
+      "@beat/api-client": ["packages/api-client/src/index.ts"],
+      "@beat/core": ["packages/core/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "tmp"]
+}
