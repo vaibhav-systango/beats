@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 
+import { DASHBOARD_ROUTES } from '../constants/routes.constants'
 import { ProtectedRoute } from './ProtectedRoute'
 import type { AuthSelector } from './types'
 
@@ -24,8 +25,8 @@ export function createDashboardRouter({
   dashboardLayout,
   useAuth,
   routes,
-  loginPath = '/login',
-  dashboardPath = '/dashboard',
+  loginPath = DASHBOARD_ROUTES.LOGIN,
+  dashboardPath = DASHBOARD_ROUTES.DASHBOARD,
   rootElement,
 }: CreateDashboardRouterConfig) {
   return createBrowserRouter([

@@ -1,4 +1,5 @@
 import { API_CONSTANTS } from '../../../constants/api.constants'
+import { ERROR_CONSTANTS } from '../../../constants/error.constants'
 import { apiClient } from '../../../axios/axios'
 import { apiFailureMessage, rethrowWithApiMessage } from '../../../lib/apiErrorMessage'
 
@@ -20,7 +21,7 @@ export async function sendOtp(body: SendOtpRequestBody): Promise<SendOtpResponse
     )
 
     if (data == null || !data.message) {
-      throw new Error(apiFailureMessage(data, 'Unable to send OTP'))
+      throw new Error(apiFailureMessage(data, ERROR_CONSTANTS.AUTH_SEND_OTP))
     }
 
     return data
@@ -40,7 +41,7 @@ export async function verifyOtp(body: VerifyOtpRequestBody): Promise<VerifyOtpRe
     )
 
     if (data == null || !data.accessToken) {
-      throw new Error(apiFailureMessage(data, 'Unable to verify OTP'))
+      throw new Error(apiFailureMessage(data, ERROR_CONSTANTS.AUTH_VERIFY_OTP))
     }
 
     return data

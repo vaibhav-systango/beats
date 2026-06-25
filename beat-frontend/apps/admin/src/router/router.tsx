@@ -1,5 +1,6 @@
 import { createDashboardRouter } from '@beat/core'
 
+import { ADMIN_ROUTES } from '@/constants'
 import { EventModeration, Login } from '@/pages'
 import { useAuthStore } from '@/store'
 
@@ -9,5 +10,5 @@ export const router = createDashboardRouter({
   loginElement: <Login />,
   dashboardLayout: <DashboardLayout />,
   useAuth: useAuthStore,
-  routes: [{ path: 'moderation', element: <EventModeration /> }],
+  routes: [{ path: ADMIN_ROUTES.MODERATION, element: <EventModeration /> }],
 })

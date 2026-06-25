@@ -1,22 +1,18 @@
-const DATE_FORMAT: Intl.DateTimeFormatOptions = {
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-}
-
-const TIME_FORMAT: Intl.DateTimeFormatOptions = {
-  hour: 'numeric',
-  minute: '2-digit',
-  hour12: true,
-}
+import { DATE_LABELS } from '../constants/dateLabels.constants'
+import { DATE_FORMAT_OPTIONS, LOCALE_CONSTANTS } from '../constants/locale.constants'
 
 export function formatEventDate(epochMs: number): string {
-  return new Date(epochMs).toLocaleDateString('en-IN', DATE_FORMAT)
+  return new Date(epochMs).toLocaleDateString(
+    LOCALE_CONSTANTS.DEFAULT,
+    DATE_FORMAT_OPTIONS.DATE
+  )
 }
 
 export function formatEventTime(epochMs: number): string {
-  return new Date(epochMs).toLocaleTimeString('en-IN', TIME_FORMAT)
+  return new Date(epochMs).toLocaleTimeString(
+    LOCALE_CONSTANTS.DEFAULT,
+    DATE_FORMAT_OPTIONS.TIME
+  )
 }
 
 export function formatEventDateTime(epochMs: number): string {
@@ -32,16 +28,16 @@ export function timeUntilEvent(epochMs: number): string {
   const diffMs = epochMs - now
 
   if (diffMs <= 0) {
-    return 'Ongoing'
+    return DATE_LABELS.ONGOING
   }
 
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
   if (diffDays === 0) {
-    return 'Today'
+    return DATE_LABELS.TODAY
   }
   if (diffDays === 1) {
-    return 'Tomorrow'
+    return DATE_LABELS.TOMORROW
   }
-  return `${diffDays} days away`
+  return DATE_LABELS.DAYS_AWAY(diffDays)
 }

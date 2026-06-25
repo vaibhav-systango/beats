@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 
+import { DASHBOARD_ROUTES } from '../constants/routes.constants'
 import type { AuthSelector } from './types'
 
 export interface ProtectedRouteProps {
@@ -12,7 +13,7 @@ export interface ProtectedRouteProps {
 export function ProtectedRoute({
   children,
   useAuth,
-  loginPath = '/login',
+  loginPath = DASHBOARD_ROUTES.LOGIN,
 }: ProtectedRouteProps) {
   const { isAuthenticated } = useAuth()
 

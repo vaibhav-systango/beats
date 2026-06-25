@@ -1,6 +1,7 @@
 import type { Event } from '@beat/types'
 import { useMutation, useQuery, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query'
 
+import { PAGINATION_CONSTANTS } from '../../../constants/pagination.constants'
 import { QUERY_KEYS } from '../../queryKeys'
 
 import { createEvent, fetchEvents } from './events.api'
@@ -9,7 +10,11 @@ import type { CreateEventInput, EventsListView, UseEventsListParams } from './ev
 export const useEventsList = (
   params: UseEventsListParams = {}
 ): UseQueryResult<EventsListView, Error> => {
-  const { page = 1, limit = 24, status } = params
+  const {
+    page = PAGINATION_CONSTANTS.DEFAULT_PAGE,
+    limit = PAGINATION_CONSTANTS.EVENTS_LIST_LIMIT,
+    status,
+  } = params
 
   return useQuery({
     queryKey: QUERY_KEYS.COMMON.EVENTS.list({ page, limit, status }),
