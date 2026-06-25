@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "outDir": "../../dist/out-tsc/apps/organiser",
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@beat/ui": ["../../packages/ui/src/index.ts"],
+      "@beat/types": ["../../packages/types/src/index.ts"],
+      "@beat/utils": ["../../packages/utils/src/index.ts"],
+      "@beat/api-client": ["../../packages/api-client/src/index.ts"],
+      "@beat/core": ["../../packages/core/src/index.ts"]
+    }
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

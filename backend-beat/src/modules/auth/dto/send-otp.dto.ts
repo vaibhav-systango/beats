@@ -1,6 +1,8 @@
-import { IsEnum, IsNotEmpty, IsString, Length } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '../../../common/enums/user.enums';
+import { DeliveryMethod } from '../../../common/enums/otp.enums';
+import { IsValidPhoneNumber } from '../decorators/is-valid-phone-number.decorator';
 
 export class SendOtpDto {
   @ApiProperty({ example: '+91', description: 'Country code' })
@@ -11,7 +13,7 @@ export class SendOtpDto {
   @ApiProperty({ example: '9876543210', description: 'Phone number' })
   @IsString()
   @IsNotEmpty()
-  @Length(10, 15)
+  @IsValidPhoneNumber()
   phoneNumber: string;
 
   @ApiProperty({
@@ -22,4 +24,13 @@ export class SendOtpDto {
   @IsEnum(UserRole)
   @IsNotEmpty()
   accountType: UserRole;
+
+  @ApiProperty({
+    enum: DeliveryMethod,
+    example: DeliveryMethod.SMS,
+    description: 'Method to deliver the OTP',
+  })
+  @IsEnum(DeliveryMethod)
+  @IsNotEmpty()
+  deliveryMethod: DeliveryMethod;
 }

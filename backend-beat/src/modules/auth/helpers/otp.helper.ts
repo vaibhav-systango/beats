@@ -22,10 +22,18 @@ export class OtpHelper {
 
   static isSessionExpired(
     rec: Otp,
-    expiryDuration: number,
+    blockDuration: number,
     now = Date.now(),
   ): boolean {
-    return now - rec.createdAt >= expiryDuration;
+    return now - Number(rec.createdAt) >= blockDuration;
+  }
+
+  static isOtpCodeExpired(
+    rec: Otp,
+    validityDuration: number,
+    now = Date.now(),
+  ): boolean {
+    return now - Number(rec.updatedAt) >= validityDuration;
   }
 
   static isThrottled(
@@ -33,7 +41,7 @@ export class OtpHelper {
     throttleDuration: number,
     now = Date.now(),
   ): boolean {
-    return now - rec.updatedAt < throttleDuration;
+    return now - Number(rec.updatedAt) < throttleDuration;
   }
 
   static async issueOtpForPurpose(
@@ -43,10 +51,10 @@ export class OtpHelper {
     accountType: UserRole,
     purpose: OtpPurpose,
     otpLimit: number,
-    expiryDuration: number,
+    blockDuration: number,
     throttleDuration: number,
     deliver: OtpDelivery,
-  ): Promise<{ message: string; otp: string }> {
+  ): Promise<{ message: string }> {
     const now = Date.now();
 
     const rec = await otpRepo.findOne({
@@ -54,12 +62,12 @@ export class OtpHelper {
     });
 
     if (rec) {
-      const expired = this.isSessionExpired(rec, expiryDuration, now);
+      const expired = this.isSessionExpired(rec, blockDuration, now);
       const throttled = this.isThrottled(rec, throttleDuration, now);
 
       if (!expired && rec.otpLimit == 0) {
         const createdAt = Number(rec.createdAt);
-        const waitSec = Math.ceil((createdAt + expiryDuration - now) / 1000);
+        const waitSec = Math.ceil((createdAt + blockDuration - now) / 1000);
 
         throw new Error(
           `${AuthMessages.TOO_MANY_ATTEMPTS} Try again in ${waitSec} seconds.`,
@@ -68,7 +76,7 @@ export class OtpHelper {
 
       if (!expired && throttled) {
         const waitSec = Math.ceil(
-          (throttleDuration - (now - rec.updatedAt)) / 1000,
+          (throttleDuration - (now - Number(rec.updatedAt))) / 1000,
         );
         throw new Error(
           `${AuthMessages.OTP_THROTTLED} Please wait ${waitSec} seconds before trying again.`,
@@ -84,10 +92,6 @@ export class OtpHelper {
         });
       } else {
         const newCode = this.generateOtpCode();
-        rec.otpCode = newCode;
-        rec.otpLimit = Math.max(0, rec.otpLimit - 1);
-        rec.updatedAt = now;
-        await otpRepo.save(rec);
 
         await deliver({
           otpCode: newCode,
@@ -96,11 +100,20 @@ export class OtpHelper {
           accountType,
           purpose,
         });
-        return { message: AuthMessages.OTP_RESENT, otp: newCode };
+
+        rec.otpCode = newCode;
+        rec.otpLimit = Math.max(0, rec.otpLimit - 1);
+        rec.failedAttempts = 0; // Reset failed attempts on resend
+        rec.updatedAt = now;
+        await otpRepo.save(rec);
+
+        return { message: AuthMessages.OTP_RESENT };
       }
     }
 
     const otpCode = this.generateOtpCode();
+
+    await deliver({ otpCode, countryCode, phoneNumber, accountType, purpose });
 
     const newOtp = new Otp();
     newOtp.countryCode = countryCode;
@@ -109,12 +122,50 @@ export class OtpHelper {
     newOtp.purpose = purpose;
     newOtp.otpCode = otpCode;
     newOtp.otpLimit = otpLimit;
+    newOtp.failedAttempts = 0;
     newOtp.createdAt = now;
     newOtp.updatedAt = now;
 
     await otpRepo.save(newOtp);
 
-    await deliver({ otpCode, countryCode, phoneNumber, accountType, purpose });
-    return { message: AuthMessages.OTP_SENT, otp: otpCode };
+    return { message: AuthMessages.OTP_SENT };
+  }
+
+  static async verifyOtpForPurpose(
+    otpRepo: Repository<Otp>,
+    countryCode: string,
+    phoneNumber: string,
+    accountType: UserRole,
+    purpose: OtpPurpose,
+    otpCode: string,
+    validityDuration: number,
+    maxGuesses: number,
+  ): Promise<boolean> {
+    const rec = await otpRepo.findOne({
+      where: { countryCode, phoneNumber, accountType, purpose },
+    });
+
+    if (!rec) {
+      throw new Error(AuthMessages.INVALID_OTP);
+    }
+
+    const codeExpired = this.isOtpCodeExpired(rec, validityDuration);
+    if (codeExpired) {
+      throw new Error(AuthMessages.OTP_EXPIRED);
+    }
+
+    if (rec.otpCode !== otpCode) {
+      rec.failedAttempts += 1;
+      if (rec.failedAttempts >= maxGuesses) {
+        throw new Error(AuthMessages.TOO_MANY_GUESSES);
+      } else {
+        await otpRepo.save(rec);
+        throw new Error(AuthMessages.INVALID_OTP);
+      }
+    }
+
+    // On successful verification, delete the OTP record
+    await otpRepo.delete({ id: rec.id });
+    return true;
   }
 }

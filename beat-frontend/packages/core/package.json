@@ -1,0 +1,21 @@
+{
+  "name": "@beat/core",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "@beat/api-client": "workspace:*",
+    "@beat/types": "workspace:*",
+    "@tanstack/react-query": "^5.62.0",
+    "react": "^18.3.0",
+    "react-router-dom": "^6.28.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0"
+  }
+}
