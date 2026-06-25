@@ -1,0 +1,27 @@
+import { Injectable } from '@nestjs/common';
+import { DataSource, Repository } from 'typeorm';
+import { Event } from '../entities/event.entity';
+
+@Injectable()
+export class EventRepository extends Repository<Event> {
+  constructor(dataSource: DataSource) {
+    super(Event, dataSource.createEntityManager());
+  }
+
+  async existsBySlug(slug: string): Promise<boolean> {
+    const count = await this.count({ where: { slug } });
+    return count > 0;
+  }
+
+  async existsByTitleAndOrganizer(
+    title: string,
+    organizerId: string,
+  ): Promise<boolean> {
+    const count = await this.count({ where: { title, organizerId } });
+    return count > 0;
+  }
+
+  async countByCategoryId(categoryId: string): Promise<number> {
+    return this.count({ where: { categoryId } });
+  }
+}
