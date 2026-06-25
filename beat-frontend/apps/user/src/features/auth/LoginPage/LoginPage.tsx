@@ -50,7 +50,6 @@ const DELIVERY_OPTIONS: {
 
 export function LoginPage() {
   const router = useRouter()
-  const login = useAuthStore((state) => state.login)
 
   const [step, setStep] = useState<LoginStep>('phone')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -105,7 +104,7 @@ export function LoginPage() {
       {
         onSuccess: (data) => {
           saveAccessToken(data.accessToken)
-          login(
+          useAuthStore.getState().login(
             {
               id: data.account.id,
               fullName: data.account.name,
