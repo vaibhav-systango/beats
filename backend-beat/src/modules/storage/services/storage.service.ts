@@ -57,6 +57,7 @@ export class StorageService implements OnModuleInit {
   }
 
   buildEventPrefix(eventId: string, field: string): string {
-    return `events/${eventId}/${field}`;
+    const sanitize = (v: string) => v.replace(/[^a-zA-Z0-9_-]/g, '');
+    return `events/${sanitize(eventId)}/${sanitize(field)}`;
   }
 }

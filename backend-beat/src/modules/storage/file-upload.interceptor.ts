@@ -104,7 +104,7 @@ export const createImageArrayUploadInterceptor = (
 };
 
 export const createEventFileUploadInterceptor = () => {
-  const imageMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  const imageMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
   const videoMimeTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
   const documentMimeTypes = [
     'application/pdf',
@@ -122,8 +122,8 @@ export const createEventFileUploadInterceptor = () => {
     {
       storage: memoryStorage(),
       limits: {
-        fileSize: DEFAULT_MAX_FILE_SIZE,
-        files: 21,
+        fileSize: Math.min(DEFAULT_MAX_FILE_SIZE, 10 * 1024 * 1024),
+        files: 10,
       },
       fileFilter: (_req, file, callback) => {
         const fieldMimeMap: Record<string, string[]> = {
@@ -159,7 +159,7 @@ export const createEventFileUploadInterceptor = () => {
 export const FileUploadConfigs = {
   IMAGE: {
     maxFileSize: DEFAULT_MAX_FILE_SIZE,
-    allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+    allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'],
     allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
   },
   VIDEO: {

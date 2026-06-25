@@ -8,9 +8,9 @@ import { AuthModule } from './modules/auth/auth.module';
 import { EventCategoriesModule } from './modules/event-categories/event-categories.module';
 import { LoggerModule, Params } from 'nestjs-pino';
 import { ulid } from 'ulid';
-import { ThrottlerModule } from '@nestjs/throttler';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import {
   minioConfiguration,
   s3Configuration,
@@ -45,6 +45,10 @@ import { loggerConfiguration } from './config/logger.configuration';
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

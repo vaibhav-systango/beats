@@ -12,6 +12,16 @@ export const loggerConfiguration = registerAs('logger', (): Params => {
             genReqId: (request) =>
                 request.headers['x-correlation-id'] || ulid(),
             autoLogging: false,
+            redact: {
+                paths: [
+                    'req.body.password',
+                    'req.body.token',
+                    'req.body.secret',
+                    'req.headers.authorization',
+                    'req.headers.cookie',
+                ],
+                censor: '***',
+            },
             serializers: {
                 req(req) {
                     req.body = req.raw.body;

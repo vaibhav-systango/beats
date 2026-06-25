@@ -97,11 +97,32 @@ export class MinioProvider implements IStorageProvider {
   async uploadMultipleFiles(
     files: Array<{ buffer: Buffer; originalName: string; prefix?: string }>,
   ): Promise<string[]> {
-    return Promise.all(
+    const results = await Promise.allSettled(
       files.map((item) =>
         this.uploadFile(item.buffer, item.originalName, item.prefix),
       ),
     );
+
+    const uploadedUrls = results
+      .filter(
+        (result): result is PromiseFulfilledResult<string> =>
+          result.status === 'fulfilled',
+      )
+      .map((result) => result.value);
+
+    const failed = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+
+    if (failed) {
+      this.logger.error(
+        `Partial upload failure. Rolling back ${uploadedUrls.length} files.`,
+      );
+      await Promise.allSettled(uploadedUrls.map((url) => this.deleteFile(url)));
+      throw failed.reason;
+    }
+
+    return uploadedUrls;
   }
 
   async deleteFile(fileUrl: string): Promise<void> {
@@ -137,12 +158,18 @@ export class MinioProvider implements IStorageProvider {
   }
 
   private extractKeyFromUrl(fileUrl: string): string {
+    const baseUrl = new URL(`${this.bucketBaseUrl}/`);
     const url = new URL(fileUrl);
-    const parts = url.pathname.split('/').filter(Boolean);
-    const bucketIndex = parts.indexOf(this.bucketName);
-    if (bucketIndex >= 0) {
-      return parts.slice(bucketIndex + 1).join('/');
+
+    if (
+      url.origin !== baseUrl.origin ||
+      !url.pathname.startsWith(baseUrl.pathname)
+    ) {
+      throw new Error(
+        'File URL does not belong to the configured MinIO bucket',
+      );
     }
-    return parts.join('/');
+
+    return url.pathname.slice(baseUrl.pathname.length);
   }
 }

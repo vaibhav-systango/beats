@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   DeleteObjectCommand,
+  HeadBucketCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -27,24 +28,32 @@ export class S3Provider implements IStorageProvider {
       publicUrlBase?.replace(/\/$/, '') ||
       `https://${this.bucketName}.s3.${region}.amazonaws.com`;
 
+    const accessKeyId = this.configService.get<string>('s3.accessKeyId');
+    const secretAccessKey = this.configService.get<string>('s3.secretAccessKey');
+
+    const credentials = accessKeyId
+      ? { accessKeyId, secretAccessKey: secretAccessKey || '' }
+      : undefined;
+
     this.client = new S3Client({
       region,
-      credentials: {
-        accessKeyId: this.configService.get<string>('s3.accessKeyId', ''),
-        secretAccessKey: this.configService.get<string>(
-          's3.secretAccessKey',
-          '',
-        ),
-      },
+      ...(credentials ? { credentials } : {}),
     });
   }
 
   async checkHealth(): Promise<boolean> {
     try {
-      this.logger.log(`S3 configured for bucket "${this.bucketName}".`);
+      await this.client.send(
+        new HeadBucketCommand({
+          Bucket: this.bucketName,
+        }),
+      );
+      this.logger.log(`S3 configured and accessible for bucket "${this.bucketName}".`);
       return true;
-    } catch (error) {
-      this.logger.error(`S3 health check failed: ${JSON.stringify(error)}`);
+    } catch (error: any) {
+      this.logger.error(
+        `S3 health check failed for bucket "${this.bucketName}": ${error.message}`,
+      );
       return false;
     }
   }
@@ -82,11 +91,32 @@ export class S3Provider implements IStorageProvider {
   async uploadMultipleFiles(
     files: Array<{ buffer: Buffer; originalName: string; prefix?: string }>,
   ): Promise<string[]> {
-    return Promise.all(
+    const results = await Promise.allSettled(
       files.map((item) =>
         this.uploadFile(item.buffer, item.originalName, item.prefix),
       ),
     );
+
+    const uploadedUrls = results
+      .filter(
+        (result): result is PromiseFulfilledResult<string> =>
+          result.status === 'fulfilled',
+      )
+      .map((result) => result.value);
+
+    const failed = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+
+    if (failed) {
+      this.logger.error(
+        `Partial upload failure. Rolling back ${uploadedUrls.length} files.`,
+      );
+      await Promise.allSettled(uploadedUrls.map((url) => this.deleteFile(url)));
+      throw failed.reason;
+    }
+
+    return uploadedUrls;
   }
 
   async deleteFile(fileUrl: string): Promise<void> {
@@ -114,7 +144,16 @@ export class S3Provider implements IStorageProvider {
   }
 
   private extractKeyFromUrl(fileUrl: string): string {
+    const baseUrl = new URL(`${this.bucketBaseUrl}/`);
     const url = new URL(fileUrl);
-    return url.pathname.replace(/^\//, '');
+
+    if (
+      url.origin !== baseUrl.origin ||
+      !url.pathname.startsWith(baseUrl.pathname)
+    ) {
+      throw new Error('File URL does not belong to the configured S3 bucket');
+    }
+
+    return url.pathname.slice(baseUrl.pathname.length);
   }
 }
