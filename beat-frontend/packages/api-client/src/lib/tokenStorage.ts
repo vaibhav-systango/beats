@@ -1,4 +1,6 @@
-const ACCESS_TOKEN_KEY = 'beat_access_token'
+import { STORAGE_CONSTANTS } from '../constants/storage.constants'
+
+const ACCESS_TOKEN_KEY = STORAGE_CONSTANTS.ACCESS_TOKEN
 
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null

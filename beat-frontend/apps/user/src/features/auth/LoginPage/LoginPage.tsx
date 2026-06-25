@@ -22,31 +22,23 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+import {
+  AUTH_CONSTANTS,
+  AUTH_COPY,
+  AUTH_ERROR_MESSAGES,
+  AUTH_VALIDATION_MESSAGES,
+  BRAND_CONSTANTS,
+  DELIVERY_OPTIONS,
+  USER_ROUTES,
+} from '@/constants'
 import { useAuthStore } from '@/store/auth.store'
 
-const DEFAULT_COUNTRY_CODE = '+91'
+const DELIVERY_ICONS = {
+  SMS: MessageSquare,
+  VOICE: Phone,
+} as const
 
 type LoginStep = 'phone' | 'otp'
-
-const DELIVERY_OPTIONS: {
-  value: DeliveryMethod
-  label: string
-  description: string
-  icon: typeof MessageSquare
-}[] = [
-  {
-    value: 'SMS',
-    label: 'Text message',
-    description: 'Receive a 6-digit code via SMS',
-    icon: MessageSquare,
-  },
-  {
-    value: 'VOICE',
-    label: 'Phone call',
-    description: 'Get your code read aloud on a call',
-    icon: Phone,
-  },
-]
 
 export function LoginPage() {
   const router = useRouter()
@@ -60,27 +52,27 @@ export function LoginPage() {
   const sendOtp = useSendOtp()
   const verifyOtp = useVerifyOtp()
 
-  const formattedPhone = `${DEFAULT_COUNTRY_CODE} ${phoneNumber}`
+  const formattedPhone = `${AUTH_CONSTANTS.DEFAULT_COUNTRY_CODE} ${phoneNumber}`
 
   const handleSendOtp = (event: React.FormEvent) => {
     event.preventDefault()
     setError(null)
 
-    if (!phoneNumber || phoneNumber.length < 10) {
-      setError('Please enter a valid 10-digit phone number')
+    if (!phoneNumber || phoneNumber.length < AUTH_CONSTANTS.PHONE_LENGTH) {
+      setError(AUTH_VALIDATION_MESSAGES.INVALID_PHONE)
       return
     }
 
     sendOtp.mutate(
       {
-        countryCode: DEFAULT_COUNTRY_CODE,
+        countryCode: AUTH_CONSTANTS.DEFAULT_COUNTRY_CODE,
         phoneNumber,
-        accountType: 'USER',
+        accountType: AUTH_CONSTANTS.ACCOUNT_TYPE,
         deliveryMethod,
       },
       {
         onSuccess: () => setStep('otp'),
-        onError: (err) => setError(err.message || 'Failed to send OTP'),
+        onError: (err) => setError(err.message || AUTH_ERROR_MESSAGES.SEND_OTP_FAILED),
       }
     )
   }
@@ -89,16 +81,16 @@ export function LoginPage() {
     event.preventDefault()
     setError(null)
 
-    if (!otp || otp.length !== 6) {
-      setError('Please enter the 6-digit code')
+    if (!otp || otp.length !== AUTH_CONSTANTS.OTP_LENGTH) {
+      setError(AUTH_VALIDATION_MESSAGES.INVALID_OTP)
       return
     }
 
     verifyOtp.mutate(
       {
-        countryCode: DEFAULT_COUNTRY_CODE,
+        countryCode: AUTH_CONSTANTS.DEFAULT_COUNTRY_CODE,
         phoneNumber,
-        accountType: 'USER',
+        accountType: AUTH_CONSTANTS.ACCOUNT_TYPE,
         otpCode: otp,
       },
       {
@@ -115,18 +107,20 @@ export function LoginPage() {
           )
 
           if (data.isNewUser) {
-            router.push('/onboarding')
+            router.push(USER_ROUTES.ONBOARDING)
           } else {
-            router.push('/')
+            router.push(USER_ROUTES.HOME)
           }
         },
-        onError: (err) => setError(err.message || 'Invalid OTP'),
+        onError: (err) => setError(err.message || AUTH_ERROR_MESSAGES.VERIFY_OTP_FAILED),
       }
     )
   }
 
   const deliveryLabel =
-    deliveryMethod === 'VOICE' ? 'via phone call' : 'via text message'
+    deliveryMethod === 'VOICE'
+      ? AUTH_COPY.DELIVERY_LABEL_VOICE
+      : AUTH_COPY.DELIVERY_LABEL_SMS
 
   return (
     <div className="flex min-h-screen w-full bg-background selection:bg-primary selection:text-primary-foreground">
@@ -134,8 +128,8 @@ export function LoginPage() {
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 z-10 bg-gradient-to-r from-black via-black/50 to-transparent" />
           <Image
-            src="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=2000"
-            alt="Concert crowd"
+            src={AUTH_COPY.HERO_IMAGE_URL}
+            alt={AUTH_COPY.HERO_IMAGE_ALT}
             fill
             className="object-cover opacity-60 mix-blend-screen"
             priority
@@ -145,19 +139,18 @@ export function LoginPage() {
 
         <div className="relative z-20 flex items-center gap-2 text-primary">
           <Zap className="h-8 w-8 fill-primary" />
-          <span className="text-2xl font-bold tracking-tight text-white">BEATS</span>
+          <span className="text-2xl font-bold tracking-tight text-white">
+            {BRAND_CONSTANTS.NAME_UPPERCASE}
+          </span>
         </div>
 
         <div className="relative z-20">
           <h1 className="mb-4 text-5xl font-extrabold leading-tight text-white">
-            Where the city
+            {BRAND_CONSTANTS.TAGLINE_LINE_1}
             <br />
-            comes alive.
+            {BRAND_CONSTANTS.TAGLINE_LINE_2}
           </h1>
-          <p className="max-w-md text-xl text-white/70">
-            The only ticketing platform you need for exclusive underground gigs,
-            festivals, and live experiences.
-          </p>
+          <p className="max-w-md text-xl text-white/70">{BRAND_CONSTANTS.HERO_DESCRIPTION}</p>
         </div>
       </div>
 
@@ -166,15 +159,17 @@ export function LoginPage() {
           <div className="space-y-2 text-center lg:text-left">
             <div className="mb-6 flex items-center justify-center gap-2 text-primary lg:hidden">
               <Zap className="h-6 w-6 fill-primary" />
-              <span className="text-xl font-bold tracking-tight">BEATS</span>
+              <span className="text-xl font-bold tracking-tight">
+                {BRAND_CONSTANTS.NAME_UPPERCASE}
+              </span>
             </div>
             <h2 className="text-3xl font-bold tracking-tight">
-              {step === 'phone' ? 'Sign in' : 'Enter code'}
+              {step === 'phone' ? AUTH_COPY.STEP_PHONE_TITLE : AUTH_COPY.STEP_OTP_TITLE}
             </h2>
             <p className="text-muted-foreground">
               {step === 'phone'
-                ? 'Enter your phone number to receive an OTP'
-                : `We sent a 6-digit code to ${formattedPhone} ${deliveryLabel}`}
+                ? AUTH_COPY.STEP_PHONE_DESCRIPTION
+                : AUTH_COPY.STEP_OTP_DESCRIPTION(formattedPhone, deliveryLabel)}
             </p>
           </div>
 
@@ -191,20 +186,22 @@ export function LoginPage() {
             <form onSubmit={handleSendOtp} className="space-y-6">
               <div className="space-y-2">
                 <label htmlFor="phone" className="sr-only">
-                  Phone number
+                  {AUTH_COPY.PHONE_LABEL}
                 </label>
                 <div className="flex gap-2">
                   <div className="flex h-12 min-w-[4.5rem] items-center justify-center rounded-md border border-input bg-white/5 px-3 text-lg text-muted-foreground">
-                    {DEFAULT_COUNTRY_CODE}
+                    {AUTH_CONSTANTS.DEFAULT_COUNTRY_CODE}
                   </div>
                   <Input
                     id="phone"
                     type="tel"
                     inputMode="numeric"
-                    placeholder="Enter phone number"
+                    placeholder={AUTH_COPY.PHONE_PLACEHOLDER}
                     value={phoneNumber}
                     onChange={(event) =>
-                      setPhoneNumber(event.target.value.replace(/\D/g, '').slice(0, 10))
+                      setPhoneNumber(
+                        event.target.value.replace(/\D/g, '').slice(0, AUTH_CONSTANTS.PHONE_LENGTH)
+                      )
                     }
                     className="h-12 border-white/10 bg-white/5 text-lg"
                     autoFocus
@@ -214,11 +211,11 @@ export function LoginPage() {
 
               <fieldset className="space-y-3">
                 <legend className="text-sm font-medium text-foreground">
-                  How would you like to receive your code?
+                  {AUTH_COPY.DELIVERY_PROMPT}
                 </legend>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {DELIVERY_OPTIONS.map((option) => {
-                    const Icon = option.icon
+                    const Icon = DELIVERY_ICONS[option.value]
                     const isSelected = deliveryMethod === option.value
 
                     return (
@@ -256,16 +253,21 @@ export function LoginPage() {
                 {sendOtp.isPending ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : null}
-                Continue
+                {AUTH_COPY.CONTINUE_BUTTON}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-6">
               <div className="flex justify-center lg:justify-start">
-                <InputOTP maxLength={6} value={otp} onChange={setOtp} autoFocus>
+                <InputOTP
+                  maxLength={AUTH_CONSTANTS.OTP_LENGTH}
+                  value={otp}
+                  onChange={setOtp}
+                  autoFocus
+                >
                   <InputOTPGroup>
-                    {Array.from({ length: 6 }).map((_, index) => (
+                    {Array.from({ length: AUTH_CONSTANTS.OTP_LENGTH }).map((_, index) => (
                       <InputOTPSlot
                         key={index}
                         index={index}
@@ -285,7 +287,7 @@ export function LoginPage() {
                 {verifyOtp.isPending ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : null}
-                Verify &amp; continue
+                {AUTH_COPY.VERIFY_BUTTON}
               </Button>
 
               <div className="flex flex-col gap-2 text-center lg:text-left">
@@ -299,7 +301,7 @@ export function LoginPage() {
                     setError(null)
                   }}
                 >
-                  Change phone number
+                  {AUTH_COPY.CHANGE_PHONE_BUTTON}
                 </Button>
                 <Button
                   type="button"
@@ -310,27 +312,27 @@ export function LoginPage() {
                     setError(null)
                     sendOtp.mutate(
                       {
-                        countryCode: DEFAULT_COUNTRY_CODE,
+                        countryCode: AUTH_CONSTANTS.DEFAULT_COUNTRY_CODE,
                         phoneNumber,
-                        accountType: 'USER',
+                        accountType: AUTH_CONSTANTS.ACCOUNT_TYPE,
                         deliveryMethod,
                       },
                       {
                         onSuccess: () => setOtp(''),
                         onError: (err) =>
-                          setError(err.message || 'Failed to resend OTP'),
+                          setError(err.message || AUTH_ERROR_MESSAGES.RESEND_OTP_FAILED),
                       }
                     )
                   }}
                 >
-                  Resend code {deliveryLabel}
+                  {AUTH_COPY.RESEND_CODE_BUTTON(deliveryLabel)}
                 </Button>
               </div>
             </form>
           )}
 
           <p className="mt-8 text-center text-xs text-muted-foreground">
-            By continuing, you agree to our Terms of Service and Privacy Policy.
+            {AUTH_COPY.TERMS_NOTICE}
           </p>
         </div>
       </div>

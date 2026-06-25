@@ -1,5 +1,6 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 
+import { PAGINATION_CONSTANTS } from '../../../constants/pagination.constants'
 import { QUERY_KEYS } from '../../queryKeys'
 
 import { fetchOrganiserEvents } from './events.api'
@@ -16,7 +17,10 @@ const keepPreviousOrganiserEvents = (
 export const useOrganiserEvents = (
   params: UseOrganiserEventsParams = {}
 ): UseQueryResult<OrganiserEventsView, Error> => {
-  const { page = 1, limit = 20 } = params
+  const {
+    page = PAGINATION_CONSTANTS.DEFAULT_PAGE,
+    limit = PAGINATION_CONSTANTS.ORGANISER_EVENTS_LIMIT,
+  } = params
 
   return useQuery({
     queryKey: QUERY_KEYS.ORGANISER.EVENTS.list(page, limit),

@@ -1,15 +1,15 @@
 import { NavLink } from 'react-router-dom'
 
-const links = [
-  { to: '/dashboard/events', label: 'Events' },
-]
+import { ORGANISER_NAVIGATION } from '@/constants'
 
 export function Sidebar() {
   return (
     <aside className="w-56 border-r border-gray-200 bg-white p-4">
-      <h2 className="mb-6 text-lg font-bold text-violet-600">Beat Organiser</h2>
+      <h2 className="mb-6 text-lg font-bold text-violet-600">
+        {ORGANISER_NAVIGATION.APP_TITLE}
+      </h2>
       <nav className="space-y-1">
-        {links.map((link) => (
+        {ORGANISER_NAVIGATION.LINKS.map((link) => (
           <NavLink
             key={link.to}
             to={link.to}

@@ -1,13 +1,14 @@
 import type { Metadata } from 'next'
 
+import { BRAND_CONSTANTS } from '@/constants'
+
 export function createDefaultMetadata(overrides?: Partial<Metadata>): Metadata {
   return {
     title: {
-      default: 'Beats — Event Ticketing Platform',
-      template: '%s | Beats',
+      default: BRAND_CONSTANTS.DEFAULT_TITLE,
+      template: BRAND_CONSTANTS.TITLE_TEMPLATE,
     },
-    description:
-      'Discover and book tickets for concerts, festivals, sports, and live events across India.',
+    description: BRAND_CONSTANTS.DEFAULT_DESCRIPTION,
     ...overrides,
   }
 }

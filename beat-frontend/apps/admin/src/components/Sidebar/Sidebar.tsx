@@ -1,13 +1,15 @@
 import { NavLink } from 'react-router-dom'
 
-const links = [{ to: '/dashboard/moderation', label: 'Event Moderation' }]
+import { ADMIN_NAVIGATION } from '@/constants'
 
 export function Sidebar() {
   return (
     <aside className="w-56 border-r border-gray-200 bg-white p-4">
-      <h2 className="mb-6 text-lg font-bold text-violet-600">Beat Admin</h2>
+      <h2 className="mb-6 text-lg font-bold text-violet-600">
+        {ADMIN_NAVIGATION.APP_TITLE}
+      </h2>
       <nav className="space-y-1">
-        {links.map((link) => (
+        {ADMIN_NAVIGATION.LINKS.map((link) => (
           <NavLink
             key={link.to}
             to={link.to}
