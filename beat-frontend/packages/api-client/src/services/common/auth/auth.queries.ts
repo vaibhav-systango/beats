@@ -1,7 +1,12 @@
 import { useMutation, type UseMutationResult } from '@tanstack/react-query'
 
-import { sendOtp } from './auth.api'
-import type { SendOtpRequestBody, SendOtpResponse } from './auth.types'
+import { sendOtp, verifyOtp } from './auth.api'
+import type {
+  SendOtpRequestBody,
+  SendOtpResponse,
+  VerifyOtpRequestBody,
+  VerifyOtpResponse,
+} from './auth.types'
 
 export const useSendOtp = (): UseMutationResult<
   SendOtpResponse,
@@ -10,5 +15,15 @@ export const useSendOtp = (): UseMutationResult<
 > => {
   return useMutation({
     mutationFn: (body: SendOtpRequestBody) => sendOtp(body),
+  })
+}
+
+export const useVerifyOtp = (): UseMutationResult<
+  VerifyOtpResponse,
+  Error,
+  VerifyOtpRequestBody
+> => {
+  return useMutation({
+    mutationFn: (body: VerifyOtpRequestBody) => verifyOtp(body),
   })
 }

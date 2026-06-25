@@ -17,7 +17,12 @@ export {
 } from './lib/apiErrorMessage'
 
 export { queryClient } from './lib/queryClient'
-export { getAccessToken, saveAccessToken, clearAccessToken } from './lib/tokenStorage'
+export {
+  getAccessToken,
+  saveAccessToken,
+  clearAccessToken,
+  clearAuthSession,
+} from './lib/tokenStorage'
 
 export { QueryProvider } from './providers/QueryProvider'
 
@@ -30,7 +35,9 @@ export {
   useEventsList,
   useCreateEventMutation,
   sendOtp,
+  verifyOtp,
   useSendOtp,
+  useVerifyOtp,
 } from './services/common'
 export type {
   CreateEventInput,
@@ -39,8 +46,11 @@ export type {
   EventsListView,
   GetEventsParams,
   UseEventsListParams,
+  DeliveryMethod,
   SendOtpRequestBody,
   SendOtpResponse,
+  VerifyOtpRequestBody,
+  VerifyOtpResponse,
 } from './services/common'
 
 export {

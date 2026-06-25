@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@beat/api-client": "workspace:*",
+    "@beat/core": "workspace:*",
     "@beat/types": "workspace:*",
     "@beat/ui": "workspace:*",
     "@beat/utils": "workspace:*",

@@ -9,6 +9,7 @@ export const QUERY_KEYS = {
     },
     AUTH: {
       sendOtp: () => ['beat', 'common', 'auth', 'sendOtp'] as const,
+      verifyOtp: () => ['beat', 'common', 'auth', 'verifyOtp'] as const,
     },
   },
   ORGANISER: {
