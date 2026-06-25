@@ -28,6 +28,7 @@ import {
   UpdateEventCategorySwagger,
   DeleteEventCategorySwagger,
 } from './decorators/swagger/event-category.decorator';
+import { UlidValidationPipe } from 'src/common/pipes/ulid-validation.pipe';
 
 @ApiTags('Event Categories')
 @Controller('event-categories')
@@ -70,7 +71,7 @@ export class EventCategoriesController {
 
   @Get(':id')
   @GetEventCategorySwagger()
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id', UlidValidationPipe) id: string) {
     try {
       return await this.eventCategoryService.getEventCategory(id);
     } catch (error) {
@@ -87,7 +88,7 @@ export class EventCategoriesController {
 
   @Patch(':id')
   @UpdateEventCategorySwagger()
-  async update(@Param('id') id: string, @Body() dto: UpdateEventCategoryDto) {
+  async update(@Param('id', UlidValidationPipe) id: string, @Body() dto: UpdateEventCategoryDto) {
     try {
       return await this.eventCategoryService.updateEventCategory(id, dto);
     } catch (error) {
@@ -108,7 +109,7 @@ export class EventCategoriesController {
 
   @Delete(':id')
   @DeleteEventCategorySwagger()
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id', UlidValidationPipe) id: string) {
     try {
       return await this.eventCategoryService.deleteEventCategory(id);
     } catch (error) {

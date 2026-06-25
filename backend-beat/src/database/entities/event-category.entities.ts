@@ -24,8 +24,7 @@ export class EventCategory {
   }
 
   @Column({
-    type: 'varchar',
-    length: 100,
+    type: 'citext',
     unique: true,
   })
   name: string;
@@ -35,6 +34,13 @@ export class EventCategory {
     nullable: true,
   })
   description?: string;
+
+  @Column({
+    name: 'is_deleted',
+    type: 'boolean',
+    default: false,
+  })
+  isDeleted: boolean;
 
   @CreateDateColumn({
     name: 'created_at',

@@ -4,6 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { EventCategory } from '../../../database/entities/event-category.entities';
 import { EventCategoryRepository } from '../../../database/repositories/event-category.repository';
 import { EventRepository } from '../../../database/repositories/event.repository';
 import { EventCategoryMessages } from '../constants/event-category.constants';
@@ -14,6 +16,7 @@ import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 @Injectable()
 export class EventCategoryService {
   constructor(
+    private readonly dataSource: DataSource,
     private readonly eventCategoryRepository: EventCategoryRepository,
     private readonly eventRepository: EventRepository,
   ) {}
@@ -26,7 +29,7 @@ export class EventCategoryService {
       description: dto.description?.trim() || undefined,
     });
 
-    return this.eventCategoryRepository.save(category);
+    return this.saveOrThrowConflict(category);
   }
 
   async getEventCategories(query: PaginationQueryDto) {
@@ -54,18 +57,21 @@ export class EventCategoryService {
       category.description = dto.description?.trim() || undefined;
     }
 
-    return this.eventCategoryRepository.save(category);
+    return this.saveOrThrowConflict(category);
   }
 
   async deleteEventCategory(id: string) {
     const category = await this.findCategoryOrThrow(id);
 
-    const eventCount = await this.eventRepository.countByCategoryId(id);
-    if (eventCount > 0) {
-      throw new ConflictException({ message: EventCategoryMessages.CATEGORY_IN_USE });
-    }
+    await this.dataSource.transaction(async (manager) => {
+      const eventCount = await this.eventRepository.countByCategoryId(id);
+      if (eventCount > 0) {
+        throw new ConflictException({ message: EventCategoryMessages.CATEGORY_IN_USE });
+      }
+      category.isDeleted = true;
+      await manager.save(category);
+    });
 
-    await this.eventCategoryRepository.remove(category);
     return { message: EventCategoryMessages.DELETED };
   }
 
@@ -75,6 +81,17 @@ export class EventCategoryService {
       throw new NotFoundException({ message: EventCategoryMessages.NOT_FOUND });
     }
     return category;
+  }
+
+  private async saveOrThrowConflict(category: EventCategory) {
+    try {
+      return await this.eventCategoryRepository.save(category);
+    } catch (e: any) {
+      if (e?.code === '23505') {
+        throw new ConflictException({ message: EventCategoryMessages.NAME_ALREADY_EXISTS });
+      }
+      throw e;
+    }
   }
 
   private async assertNameIsUnique(name: string, excludeId?: string): Promise<void> {

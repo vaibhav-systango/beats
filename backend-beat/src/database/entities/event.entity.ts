@@ -97,6 +97,7 @@ export class Event {
     type: 'geography',
     spatialFeatureType: 'Point',
     srid: 4326,
+    nullable: true,
   })
   location?: GeoPoint;
 

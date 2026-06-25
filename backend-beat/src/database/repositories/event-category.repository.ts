@@ -9,15 +9,14 @@ export class EventCategoryRepository extends Repository<EventCategory> {
   }
 
   async findById(id: string): Promise<EventCategory | null> {
-    return this.findOne({ where: { id } });
+    return this.findOne({ where: { id, isDeleted: false } });
   }
 
   async existsByName(name: string, excludeId?: string): Promise<boolean> {
     const normalized = name.trim().toLowerCase();
-    const qb = this.createQueryBuilder('category').where(
-      'LOWER(category.name) = :name',
-      { name: normalized },
-    );
+    const qb = this.createQueryBuilder('category')
+      .where('LOWER(category.name) = :name', { name: normalized })
+      .andWhere('category.is_deleted = false');
 
     if (excludeId) {
       qb.andWhere('category.id != :excludeId', { excludeId });
@@ -28,6 +27,7 @@ export class EventCategoryRepository extends Repository<EventCategory> {
 
   async findAllOrdered(limit: number, offset: number): Promise<[EventCategory[], number]> {
     return this.findAndCount({
+      where: { isDeleted: false },
       order: { name: 'ASC' },
       take: limit,
       skip: offset,
