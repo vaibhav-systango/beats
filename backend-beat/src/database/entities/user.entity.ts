@@ -3,6 +3,7 @@ import {
   Column,
   PrimaryColumn,
   BeforeInsert,
+  BeforeUpdate,
   ManyToOne,
   JoinColumn,
   ManyToMany,
@@ -21,10 +22,18 @@ export class User {
   id: string;
 
   @BeforeInsert()
-  generateId() {
+  beforeInsert() {
     if (!this.id) {
       this.id = ulid();
     }
+    const now = Date.now();
+    this.createdAt = now;
+    this.updatedAt = now;
+  }
+
+  @BeforeUpdate()
+  beforeUpdate() {
+    this.updatedAt = Date.now();
   }
 
   @Column('char', { length: 26 })
