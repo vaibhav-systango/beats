@@ -5,6 +5,8 @@ import { Role } from '../database/entities/role.entity';
 import { Otp } from '../database/entities/otp.entity';
 import { EventCategory } from '../database/entities/event-category.entities';
 import { Event } from '../database/entities/event.entity';
+import { Permission } from '../database/entities/permission.entity';
+import { RoutePermission } from '../database/entities/route-permission.entity';
 
 dotenv.config();
 export const typeOrmConfig: DataSourceOptions = {
@@ -14,7 +16,15 @@ export const typeOrmConfig: DataSourceOptions = {
   username: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
   database: process.env.POSTGRES_DB,
-  entities: [User, Role, Otp, EventCategory,Event],
+  entities: [
+    User,
+    Role,
+    Otp,
+    EventCategory,
+    Event,
+    Permission,
+    RoutePermission,
+  ],
   migrations: [__dirname + '/../database/migrations/*.{ts,js}'],
 
   synchronize: false,
