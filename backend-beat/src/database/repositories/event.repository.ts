@@ -22,6 +22,12 @@ export class EventRepository extends Repository<Event> {
   }
 
   async countByCategoryId(categoryId: string): Promise<number> {
-    return this.count({ where: { categoryId } });
+    return this.createQueryBuilder('event')
+      .innerJoin('event_sessions', 'session', 'session.event_id = event.id')
+      .innerJoin('session_categories', 'sc', 'sc.session_id = session.id')
+      .where('sc.category_id = :categoryId', { categoryId })
+      .andWhere('event.deleted_at IS NULL')
+      .andWhere('session.deleted_at IS NULL')
+      .getCount();
   }
 }

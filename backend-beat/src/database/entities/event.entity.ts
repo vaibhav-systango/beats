@@ -1,32 +1,41 @@
 import {
   Entity,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
-  PrimaryColumn,
   BeforeInsert,
+  PrimaryColumn,
+  Index,
   ManyToOne,
   JoinColumn,
+  BeforeUpdate,
 } from 'typeorm';
 import { ulid } from 'ulid';
-
 import { User } from './user.entity';
-import { EventCategory } from './event-category.entities';
-import type { GeoPoint } from '../../common/interfaces/geo-point.interface';
 
 export enum EventStatus {
-  DRAFT = 'draft',
-  PENDING_APPROVAL = 'pending_approval',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  COMPLETED = 'completed',
+  DRAFT = 'DRAFT',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  PUBLISHED = 'PUBLISHED',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
 }
 
-export enum EventVisibility {
-  PUBLIC = 'public',
-  PRIVATE = 'private',
+export interface StatusLogEntry {
+  action: string;
+  adminId: string;
+  timestamp: number;
+  reason?: string;
 }
+
+export const bigintTransformer = {
+  to: (value: number | null | undefined): string | null | undefined => {
+    return value !== undefined && value !== null ? value.toString() : value;
+  },
+  from: (value: string | null | undefined): number | null | undefined => {
+    return value !== undefined && value !== null ? Number(value) : value;
+  },
+};
 
 @Entity('events')
 export class Event {
@@ -35,13 +44,6 @@ export class Event {
     length: 26,
   })
   id: string;
-
-  @BeforeInsert()
-  generateId(): void {
-    if (!this.id) {
-      this.id = ulid();
-    }
-  }
 
   @Column({
     name: 'organizer_id',
@@ -55,20 +57,10 @@ export class Event {
   organizer!: User;
 
   @Column({
-    name: 'category_id',
-    type: 'char',
-    length: 26,
-  })
-  categoryId: string;
-
-  @ManyToOne(() => EventCategory)
-  @JoinColumn({ name: 'category_id' })
-  category!: EventCategory;
-
-  @Column({
     type: 'varchar',
     length: 255,
   })
+  @Index()
   title: string;
 
   @Column({
@@ -84,174 +76,58 @@ export class Event {
   description: string;
 
   @Column({
-    type: 'jsonb',
-    nullable: true,
-  })
-  address?: {
-    city: string;
-    state: string;
-    country: string;
-  };
-
-  @Column({
-    type: 'geography',
-    spatialFeatureType: 'Point',
-    srid: 4326,
-    nullable: true,
-  })
-  location?: GeoPoint;
-
-  @Column({
-    name: 'start_datetime',
-    type: 'timestamp',
-  })
-  startDatetime: Date;
-
-  @Column({
-    name: 'end_datetime',
-    type: 'timestamp',
-  })
-  endDatetime: Date;
-
-  @Column({
     type: 'enum',
     enum: EventStatus,
-    default: EventStatus.PENDING_APPROVAL,
+    default: EventStatus.DRAFT,
   })
+  @Index()
   status: EventStatus;
 
   @Column({
-    name: 'approved_at',
-    type: 'timestamp',
-    nullable: true,
-  })
-  approvedAt?: Date;
-
-  @Column({
-    name: 'approved_by',
-    type: 'char',
-    length: 26,
-    nullable: true,
-  })
-  approvedBy?: string;
-
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'approved_by' })
-  approvedByUser?: User;
-
-  @Column({
-    name: 'rejected_at',
-    type: 'timestamp',
-    nullable: true,
-  })
-  rejectedAt?: Date;
-
-  @Column({
-    name: 'rejected_by',
-    type: 'char',
-    length: 26,
-    nullable: true,
-  })
-  rejectedBy?: string;
-
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'rejected_by' })
-  rejectedByUser?: User;
-
-  @Column({
-    name: 'rejection_reason',
-    type: 'text',
-    nullable: true,
-  })
-  rejectionReason?: string;
-
-  @Column({
-    name: 'ticket_sale_start_at',
-    type: 'timestamp',
-    nullable: true,
-  })
-  ticketSaleStartAt?: Date;
-
-  @Column({
-    name: 'ticket_sale_end_at',
-    type: 'timestamp',
-    nullable: true,
-  })
-  ticketSaleEndAt?: Date;
-
-  @Column({
-    name: 'total_tickets',
-    type: 'integer',
-    nullable: true,
-  })
-  totalTickets?: number;
-
-  @Column({
-    name: 'allow_referrals',
-    type: 'boolean',
-    default: false,
-  })
-  allowReferrals: boolean;
-
-  @Column({
-    name: 'referral_reward_per_ticket',
-    type: 'decimal',
-    precision: 10,
-    scale: 2,
-    nullable: true,
-  })
-  referralRewardPerTicket?: number;
-
-  @Column({
-    name: 'allow_promoters',
-    type: 'boolean',
-    default: false,
-  })
-  allowPromoters: boolean;
-
-  @Column({
-    name: 'promoter_commission_percentage',
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    nullable: true,
-  })
-  promoterCommissionPercentage?: number;
-
-  @Column({
+    name: 'status_log',
     type: 'jsonb',
-    nullable: false,
+    default: [],
   })
-  media: {
-    cover?: string;
-    gallery?: string[];
-    videos?: string[];
-    documents?: string[];
-  };
+  statusLog: StatusLogEntry[];
 
   @Column({
-    type: 'enum',
-    enum: EventVisibility,
-    default: EventVisibility.PUBLIC,
-  })
-  visibility: EventVisibility;
-
-  @CreateDateColumn({
     name: 'created_at',
-    type: 'timestamp',
+    type: 'bigint',
+    transformer: bigintTransformer,
   })
-  createdAt: Date;
+  createdAt: number;
 
-  @UpdateDateColumn({
+  @Column({
     name: 'updated_at',
-    type: 'timestamp',
+    type: 'bigint',
+    transformer: bigintTransformer,
   })
-  updatedAt: Date;
+  updatedAt: number;
 
-  @DeleteDateColumn({
+  @Column({
     name: 'deleted_at',
-    type: 'timestamp',
+    type: 'bigint',
     nullable: true,
+    transformer: bigintTransformer,
   })
-  deletedAt?: Date;
+  deletedAt?: number;
+
+  @BeforeInsert()
+  preInsert(): void {
+    if (!this.id) {
+      this.id = ulid();
+    }
+    const now = Date.now();
+    if (!this.createdAt) {
+      this.createdAt = now;
+    }
+    if (!this.updatedAt) {
+      this.updatedAt = now;
+    }
+  }
+
+  @BeforeUpdate()
+  updateTimestamp(): void {
+    this.updatedAt = Date.now();
+  }
 }
