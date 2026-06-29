@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { EventCategory } from '../../../database/entities/event-category.entities';
@@ -15,6 +16,7 @@ import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 
 @Injectable()
 export class EventCategoryService {
+  private readonly logger = new Logger(EventCategoryService.name);
   constructor(
     private readonly dataSource: DataSource,
     private readonly eventCategoryRepository: EventCategoryRepository,
