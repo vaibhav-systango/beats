@@ -14,7 +14,7 @@ export class UserRepository extends Repository<User> {
     roleName: UserRole,
   ): Promise<User | null> {
     return this.findOne({
-      where: { mobileNumber: phoneNumber, role: { name: roleName } },
+      where: { phoneNumber: phoneNumber, role: { name: roleName } },
       relations: { role: true },
     });
   }

@@ -89,10 +89,9 @@ export class AuthService {
       }
 
       const newUser = new User();
-      newUser.mobileNumber = phoneNumber;
+      newUser.phoneNumber = phoneNumber;
+      newUser.countryCode = countryCode;
       newUser.role = role;
-      //remove this for future
-      newUser.name = 'User';
 
       user = await this.userRepository.save(newUser);
     }
@@ -114,8 +113,8 @@ export class AuthService {
       flowType: isNewUser ? OtpPurpose.SIGNUP : OtpPurpose.LOGIN,
       account: {
         id: user.id,
-        name: user.name,
-        mobileNumber: user.mobileNumber,
+        fullName: user.fullName,
+        phoneNumber: user.phoneNumber,
         role: user.role.name,
       },
     };
