@@ -20,6 +20,8 @@ export const AuthMessages = {
   TWILIO_INVALID_NUMBER: 'The phone number provided is invalid.',
   TWILIO_GENERIC_ERROR: 'Failed to deliver OTP. Please try again later.',
   UNSUPPORTED_DELIVERY_METHOD: 'Unsupported delivery method',
+  INVALID_TOKEN: 'Invalid or expired token.',
+  SESSION_NOT_FOUND: 'Session not found.',
 };
 export const AuthConstants = {
   OTP_BLOCK_DURATION_MS:

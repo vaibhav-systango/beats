@@ -5,7 +5,11 @@ import { AuthConstants, AuthMessages } from '../constants/auth.constants';
 import { OtpHelper } from '../helpers/otp.helper';
 import { UserRepository } from '../../../database/repositories/user.repository';
 import { OtpRepository } from '../../../database/repositories/otp.repository';
-import { OtpPurpose, DeliveryMethod } from '../../../common/enums/otp.enums';
+import { UserSessionRepository } from '../../../database/repositories/user-session.repository';
+import { UserSession } from '../../../database/entities/user-session.entity';
+import * as bcrypt from 'bcrypt';
+import { ulid } from 'ulid';
+import { DeliveryMethod, OtpPurpose } from '../../../common/enums/otp.enums';
 import { TwilioOtpProvider } from '../../../providers/twilio-otp.provider';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { Role } from '../../../database/entities/role.entity';
@@ -16,6 +20,7 @@ export class AuthService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly otpRepository: OtpRepository,
+    private readonly userSessionRepository: UserSessionRepository,
     private readonly jwtService: JwtService,
     private readonly twilioOtpProvider: TwilioOtpProvider,
   ) {}
@@ -58,7 +63,7 @@ export class AuthService {
       },
     );
   }
-  async verifyOtp(dto: VerifyOtpDto) {
+  async verifyOtp(dto: VerifyOtpDto, reqMetadata?: Record<string, any>) {
     const { countryCode, phoneNumber, accountType, otpCode } = dto;
 
     let user = await this.userRepository.findByPhoneAndRole(
@@ -96,19 +101,38 @@ export class AuthService {
       user = await this.userRepository.save(newUser);
     }
 
-    const payload = {
+    const sessionId = ulid();
+    const refreshJti = ulid();
+
+    const accessPayload = {
       sub: user.id,
       role: user.role.name,
       onboardingStatus: user.onboardingStatus,
+      sessionId,
     };
-    const accessToken = await this.jwtService.signAsync(payload, {
+    const refreshPayload = { ...accessPayload, jti: refreshJti };
+
+    const accessToken = await this.jwtService.signAsync(accessPayload, {
       expiresIn:
         AuthConstants.ACCESS_TOKEN_EXPIRY as JwtSignOptions['expiresIn'],
     });
-    const refreshToken = await this.jwtService.signAsync(payload, {
+    const refreshToken = await this.jwtService.signAsync(refreshPayload, {
       expiresIn:
         AuthConstants.REFRESH_TOKEN_EXPIRY as JwtSignOptions['expiresIn'],
     });
+
+    const refreshTokenHash = await bcrypt.hash(refreshJti, 10);
+
+    const deviceMetadata = reqMetadata || {};
+
+    const session = new UserSession();
+    session.id = sessionId;
+    session.user = user;
+    session.refreshTokenHash = refreshTokenHash;
+    session.deviceMetadata = deviceMetadata;
+    session.lastActiveAt = Date.now();
+    session.isActive = true;
+    await this.userSessionRepository.save(session);
 
     return {
       accessToken,
@@ -122,6 +146,97 @@ export class AuthService {
         role: user.role.name,
         onboardingStatus: user.onboardingStatus,
       },
+    };
+  }
+
+  async refreshToken(oldRefreshToken: string) {
+    let payload: {
+      sessionId: string;
+      sub: string;
+      role: string;
+      onboardingStatus: string;
+      jti: string;
+    };
+    try {
+      payload = await this.jwtService.verifyAsync(oldRefreshToken);
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === 'TokenExpiredError') {
+        const decoded = this.jwtService.decode(oldRefreshToken) as {
+          sessionId?: string;
+        } | null;
+        if (decoded && decoded.sessionId) {
+          await this.userSessionRepository.update(
+            { id: decoded.sessionId },
+            { isActive: false },
+          );
+        }
+      }
+      throw new Error(AuthMessages.INVALID_TOKEN);
+    }
+
+    const sessionId = payload.sessionId;
+    const session = await this.userSessionRepository.findOne({
+      where: { id: sessionId, isActive: true },
+      relations: { user: { role: true } },
+    });
+
+    if (!session) {
+      throw new Error(AuthMessages.SESSION_NOT_FOUND);
+    }
+
+    // Compare the jti from the incoming token against the stored hash.
+    // The full JWT cannot be used with bcrypt (72-byte truncation makes
+    // all tokens for the same user hash-equal).
+    const isMatch = await bcrypt.compare(payload.jti, session.refreshTokenHash);
+    if (!isMatch) {
+      throw new Error(AuthMessages.INVALID_TOKEN);
+    }
+
+    const user = session.user;
+
+    const newRefreshJti = ulid();
+    const newAccessPayload = {
+      sub: user.id,
+      role: user.role.name,
+      onboardingStatus: user.onboardingStatus,
+      sessionId,
+    };
+    const newRefreshPayload = { ...newAccessPayload, jti: newRefreshJti };
+
+    const newAccessToken = await this.jwtService.signAsync(newAccessPayload, {
+      expiresIn:
+        AuthConstants.ACCESS_TOKEN_EXPIRY as JwtSignOptions['expiresIn'],
+    });
+    const newRefreshToken = await this.jwtService.signAsync(newRefreshPayload, {
+      expiresIn:
+        AuthConstants.REFRESH_TOKEN_EXPIRY as JwtSignOptions['expiresIn'],
+    });
+
+    const newRefreshTokenHash = await bcrypt.hash(newRefreshJti, 10);
+
+    // Atomically clear the old hash — prevents race condition where two
+    // parallel requests both pass bcrypt.compare and both get new tokens.
+    const updateResult = await this.userSessionRepository
+      .createQueryBuilder()
+      .update()
+      .set({
+        refreshTokenHash: newRefreshTokenHash,
+        lastActiveAt: Date.now(),
+      })
+      .where('id = :id', { id: sessionId })
+      .andWhere('refreshTokenHash = :oldHash', {
+        oldHash: session.refreshTokenHash,
+      })
+      .execute();
+
+    if (updateResult.affected === 0) {
+      throw new Error(AuthMessages.INVALID_TOKEN);
+    }
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
     };
   }
 }
