@@ -7,6 +7,7 @@ import { EventCategory } from '../database/entities/event-category.entities';
 import { Event } from '../database/entities/event.entity';
 import { Permission } from '../database/entities/permission.entity';
 import { RoutePermission } from '../database/entities/route-permission.entity';
+import { UserSession } from '../database/entities/user-session.entity';
 
 dotenv.config();
 export const typeOrmConfig: DataSourceOptions = {
@@ -24,6 +25,7 @@ export const typeOrmConfig: DataSourceOptions = {
     Event,
     Permission,
     RoutePermission,
+    UserSession,
   ],
   migrations: [__dirname + '/../database/migrations/*.{ts,js}'],
 
