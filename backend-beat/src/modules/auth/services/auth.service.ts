@@ -89,15 +89,18 @@ export class AuthService {
       }
 
       const newUser = new User();
-      newUser.mobileNumber = phoneNumber;
+      newUser.phoneNumber = phoneNumber;
+      newUser.countryCode = countryCode;
       newUser.role = role;
-      //remove this for future
-      newUser.name = 'User';
 
       user = await this.userRepository.save(newUser);
     }
 
-    const payload = { sub: user.id, role: user.role.name };
+    const payload = {
+      sub: user.id,
+      role: user.role.name,
+      onboardingStatus: user.onboardingStatus,
+    };
     const accessToken = await this.jwtService.signAsync(payload, {
       expiresIn:
         AuthConstants.ACCESS_TOKEN_EXPIRY as JwtSignOptions['expiresIn'],
@@ -114,9 +117,10 @@ export class AuthService {
       flowType: isNewUser ? OtpPurpose.SIGNUP : OtpPurpose.LOGIN,
       account: {
         id: user.id,
-        name: user.name,
-        mobileNumber: user.mobileNumber,
+        fullName: user.fullName,
+        phoneNumber: user.phoneNumber,
         role: user.role.name,
+        onboardingStatus: user.onboardingStatus,
       },
     };
   }

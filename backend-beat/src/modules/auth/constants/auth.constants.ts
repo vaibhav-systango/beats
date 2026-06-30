@@ -10,6 +10,8 @@ export const AuthMessages = {
   OTP_EXPIRED: 'OTP has expired.',
   ROLE_NOT_FOUND: 'Role not found.',
   UNEXPECTED_ERROR: 'An unexpected error occurred. Please try again later.',
+  UNAUTHORIZED: 'Unauthorized access.',
+  INACTIVE_USER: 'User account is inactive.',
   TWILIO_UNVERIFIED_NUMBER:
     'This number is unverified. As we are using a Twilio trial account, we cannot send messages/calls to unverified numbers.',
   TWILIO_GEO_PERMISSION:

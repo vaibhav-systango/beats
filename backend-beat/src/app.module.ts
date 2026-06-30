@@ -17,6 +17,7 @@ import {
   storageConfiguration,
 } from './config/storage.configuration';
 import { loggerConfiguration } from './config/logger.configuration';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { loggerConfiguration } from './config/logger.configuration';
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60000, limit: 500 }] }),
     AuthModule,
     EventCategoriesModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [
