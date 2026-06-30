@@ -7,6 +7,7 @@ import { AuthMessages } from '../constants/auth.constants';
 interface JwtPayload {
   sub: string;
   role: string;
+  sessionId: string;
 }
 
 @Injectable()
@@ -36,6 +37,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       return {
         sub: user.id,
         role: payload.role,
+        sessionId: payload.sessionId,
       };
     } catch (err) {
       console.error('JWT Strategy Validation Error:', err);
