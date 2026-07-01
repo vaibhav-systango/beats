@@ -239,4 +239,53 @@ export class AuthService {
       refreshToken: newRefreshToken,
     };
   }
+
+  async getSessions(userId: string) {
+    const sessions = await this.userSessionRepository.find({
+      where: { userId, isActive: true },
+      order: { lastActiveAt: 'DESC' },
+    });
+
+    return sessions.map((s) => ({
+      id: s.id,
+      deviceMetadata: s.deviceMetadata,
+      lastActiveAt: s.lastActiveAt,
+      createdAt: s.createdAt,
+    }));
+  }
+
+  async logoutSession(
+    requestingUserId: string,
+    sessionId: string,
+    isAdmin = false,
+  ) {
+    const session = await this.userSessionRepository.findOne({
+      where: { id: sessionId },
+    });
+
+    if (!session || !session.isActive) {
+      throw new Error(AuthMessages.SESSION_NOT_FOUND);
+    }
+
+    // Admins can terminate any session; regular users only their own
+    if (!isAdmin && session.userId !== requestingUserId) {
+      throw new Error(AuthMessages.SESSION_FORBIDDEN);
+    }
+
+    await this.userSessionRepository.update(
+      { id: sessionId },
+      { isActive: false },
+    );
+
+    return { message: AuthMessages.SESSION_TERMINATED };
+  }
+
+  async logoutAllSessions(userId: string) {
+    await this.userSessionRepository.update(
+      { userId, isActive: true },
+      { isActive: false },
+    );
+
+    return { message: AuthMessages.ALL_SESSIONS_TERMINATED };
+  }
 }

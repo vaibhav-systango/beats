@@ -22,6 +22,10 @@ export const AuthMessages = {
   UNSUPPORTED_DELIVERY_METHOD: 'Unsupported delivery method',
   INVALID_TOKEN: 'Invalid or expired token.',
   SESSION_NOT_FOUND: 'Session not found.',
+  SESSION_TERMINATED: 'Session terminated successfully.',
+  ALL_SESSIONS_TERMINATED: 'All sessions terminated successfully.',
+  SESSION_FORBIDDEN: 'You do not have access to this session.',
+  SESSION_INACTIVE: 'Session has been terminated. Please log in again.',
 };
 export const AuthConstants = {
   OTP_BLOCK_DURATION_MS:
