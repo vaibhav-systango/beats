@@ -55,7 +55,7 @@ export class User {
   @Column({ type: 'varchar', length: 5 })
   countryCode: string;
 
-  @Column({ type: 'varchar', length: 15, unique: true })
+  @Column({ type: 'varchar', length: 15 })
   phoneNumber: string;
 
   @Column({ type: 'varchar', length: 500, nullable: true })
