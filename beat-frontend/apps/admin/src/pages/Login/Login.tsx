@@ -1,19 +1,25 @@
-import { Button, Card } from '@beat/ui'
+import { OtpLoginPage } from '@beat/core'
+import { ShieldCheck } from '@beat/ui'
 
-import { ADMIN_AUTH_COPY } from '@/constants'
+import { ADMIN_AUTH_CONSTANTS, ADMIN_AUTH_COPY } from '@/constants'
+import { useAuthStore } from '@/store'
 
 export function Login() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-6">
-      <Card
-        className="w-full max-w-md"
-        header={<h1 className="text-xl font-bold">{ADMIN_AUTH_COPY.TITLE}</h1>}
-      >
-        <p className="text-sm text-gray-500">{ADMIN_AUTH_COPY.SUBTITLE}</p>
-        <Button variant="primary" className="mt-4 w-full" disabled>
-          {ADMIN_AUTH_COPY.LOGIN_BUTTON}
-        </Button>
-      </Card>
-    </div>
+    <OtpLoginPage
+      useAuthStore={useAuthStore}
+      config={{
+        accountType: ADMIN_AUTH_CONSTANTS.ACCOUNT_TYPE,
+        showVoiceOtp: ADMIN_AUTH_CONSTANTS.SHOW_VOICE_OTP,
+        skipOnboarding: ADMIN_AUTH_CONSTANTS.SKIP_ONBOARDING,
+        brandName: ADMIN_AUTH_COPY.BRAND_NAME,
+        brandIcon: <ShieldCheck className="h-8 w-8 text-red-500" />,
+        heroTitle: ADMIN_AUTH_COPY.HERO_TITLE,
+        heroDescription: ADMIN_AUTH_COPY.HERO_DESCRIPTION,
+        heroImageUrl: ADMIN_AUTH_COPY.HERO_IMAGE_URL,
+        heroImageAlt: ADMIN_AUTH_COPY.HERO_IMAGE_ALT,
+        termsNotice: ADMIN_AUTH_COPY.TERMS_NOTICE,
+      }}
+    />
   )
 }

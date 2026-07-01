@@ -4,6 +4,8 @@ export type {
   DeliveryMethod,
   SendOtpRequestBody,
   SendOtpResponse,
+  SendOtpEnvelope,
   VerifyOtpRequestBody,
   VerifyOtpResponse,
+  VerifyOtpAccount,
 } from './auth.types'

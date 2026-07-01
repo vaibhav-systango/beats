@@ -10,5 +10,6 @@ export const router = createDashboardRouter({
   loginElement: <Login />,
   dashboardLayout: <DashboardLayout />,
   useAuth: useAuthStore,
+  requireOnboarding: false,
   routes: [{ path: ADMIN_ROUTES.MODERATION, element: <EventModeration /> }],
 })
