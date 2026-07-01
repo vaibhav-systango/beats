@@ -26,6 +26,9 @@ export interface StatusLogEntry {
   adminId: string;
   timestamp: number;
   reason?: string;
+  publishAt?: number;
+  status?: string;
+  payload?: any;
 }
 
 export const bigintTransformer = {

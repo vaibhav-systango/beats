@@ -28,9 +28,11 @@ export class MinioProvider implements IStorageProvider {
     const useSSL = this.resolveUseSsl();
 
     const publicUrlBase = this.configService.get<string>('minio.publicUrlBase');
-    this.bucketBaseUrl =
-      publicUrlBase?.replace(/\/$/, '') ||
-      `${useSSL ? 'https' : 'http'}://${endpoint}:${port}/${this.bucketName}`;
+    let baseUrl = publicUrlBase?.replace(/\/$/, '') || `${useSSL ? 'https' : 'http'}://${endpoint}:${port}`;
+    if (!baseUrl.endsWith(`/${this.bucketName}`)) {
+      baseUrl = `${baseUrl}/${this.bucketName}`;
+    }
+    this.bucketBaseUrl = baseUrl;
 
     this.minioClient = new MinioClient({
       endPoint: endpoint,

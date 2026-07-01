@@ -42,6 +42,12 @@ export interface EventAddress {
   postalCode?: string;
 }
 
+export interface ArtistMetadata {
+  name: string;
+  socialMediaUrl: string;
+  category: string;
+}
+
 export interface MediaFile {
   url: string;
   mime_type: string;
@@ -268,7 +274,7 @@ export class EventSession {
     type: 'jsonb',
     nullable: true,
   })
-  artistMetadata?: any;
+  artistMetadata?: ArtistMetadata;
 
   @BeforeInsert()
   preInsert(): void {
