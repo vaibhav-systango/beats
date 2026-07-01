@@ -50,7 +50,7 @@ export const InputOTP = forwardRef<HTMLInputElement, InputOTPProps>(
     },
     ref
   ) => {
-    const inputRef = useRef<HTMLInputElement>(null)
+    const inputRef = useRef<HTMLInputElement | null>(null)
     const inputId = useId()
     const digits = value.replace(/\D/g, '').slice(0, maxLength)
     const activeIndex = Math.min(digits.length, maxLength - 1)

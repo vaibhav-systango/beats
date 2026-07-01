@@ -1,3 +1,96 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 260 20% 98%;
+    --foreground: 260 20% 8%;
+    --border: 260 12% 86%;
+    --input: 260 12% 88%;
+    --ring: 262 70% 52%;
+    --card: 0 0% 100%;
+    --card-foreground: 260 20% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 260 20% 8%;
+    --primary: 262 70% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 260 12% 92%;
+    --secondary-foreground: 260 20% 8%;
+    --muted: 260 12% 93%;
+    --muted-foreground: 260 10% 42%;
+    --accent: 315 65% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --radius: 0.5rem;
+    --font-plus-jakarta: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 100%;
+    --border: 240 6% 18%;
+    --input: 240 6% 18%;
+    --ring: 262 83% 68%;
+    --card: 240 8% 8%;
+    --card-foreground: 0 0% 100%;
+    --popover: 240 8% 8%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 262 83% 68%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 6% 16%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 240 6% 12%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 315 80% 62%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+  }
+
+  .dark[data-app='admin'] {
+    --primary: 0 72% 51%;
+    --ring: 0 72% 51%;
+    --accent: 0 62% 45%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes caret-blink {
+  0%,
+  70%,
+  100% {
+    opacity: 1;
+  }
+  20%,
+  50% {
+    opacity: 0;
+  }
+}
+
+.animate-caret-blink {
+  animation: caret-blink 1.25s ease-out infinite;
+}
