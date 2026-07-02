@@ -34,7 +34,7 @@ import {
 import { UlidValidationPipe } from 'src/common/pipes/ulid-validation.pipe';
 
 @ApiTags('Event Categories')
-@Controller('event-categories')
+@Controller('api/v1/event-categories')
 export class EventCategoriesController {
   private readonly logger = new Logger(EventCategoriesController.name);
 

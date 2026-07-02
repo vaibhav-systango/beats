@@ -53,7 +53,7 @@ import {
 } from './decorators/swagger/session.decorators';
 
 @ApiTags('Events')
-@Controller('events')
+@Controller('api/v1/events')
 export class EventsController {
   private readonly logger = new Logger(EventsController.name);
 

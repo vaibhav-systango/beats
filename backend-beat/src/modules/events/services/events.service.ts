@@ -1007,7 +1007,7 @@ export class EventsService {
       if (revisionIndex !== -1) {
         // --- CASE A: REVIEWING A SHADOW COPY REVISION ---
         const revision = event.statusLog[revisionIndex] as any;
-        const payload = revision.payload as CreateEventDto;
+        const payload = revision.payload as UpdateEventDto;
 
         if (dto.action === ReviewAction.APPROVE) {
           // Update revision status
@@ -1016,8 +1016,22 @@ export class EventsService {
           revision.timestamp = Date.now();
 
           // Merge event metadata fields only
-          event.title = payload.title.trim();
-          event.description = payload.description.trim();
+          if (payload.title !== undefined) {
+            event.title = payload.title.trim();
+          }
+          if (payload.description !== undefined) {
+            event.description = payload.description.trim();
+          }
+          if (payload.slug !== undefined) {
+            const nextSlug = payload.slug.trim();
+            const existingSlug = await manager.findOne(Event, {
+              where: { slug: nextSlug, deletedAt: IsNull() },
+            });
+            if (existingSlug && existingSlug.id !== event.id) {
+              throw new ConflictException('Event slug already exists.');
+            }
+            event.slug = nextSlug;
+          }
           
           // Append approval audit entry
           event.statusLog.push({
@@ -1029,25 +1043,16 @@ export class EventsService {
 
           const savedEvent = await manager.save(event);
 
-          // Send approval notice
-          try {
-            const template = this.emailService.getEmailTemplate('event.approved', {
+          return {
+            message: 'Shadow copy revision approved and merged into live event tables.',
+            event: savedEvent,
+            emailAction: {
+              type: 'approved',
+              email: organizerEmail,
               title: savedEvent.title,
               publishAt: 'Live (Immediate Revision)',
-            });
-            await this.emailService.sendEmail(
-              organizerEmail,
-              template.subject,
-              template.text,
-              template.html,
-            );
-          } catch (mailErr) {
-            this.logger.error(
-              `Failed to send approval email: ${mailErr.message}`,
-            );
-          }
-
-          return { message: 'Shadow copy revision approved and merged into live event tables.', event: savedEvent };
+            },
+          };
         } else {
           // Reject revision
           revision.status = 'REJECTED';
@@ -1064,25 +1069,16 @@ export class EventsService {
 
           const savedEvent = await manager.save(event);
 
-          // Send rejection notice
-          try {
-            const template = this.emailService.getEmailTemplate('event.rejected', {
+          return {
+            message: 'Shadow copy revision rejected.',
+            event: savedEvent,
+            emailAction: {
+              type: 'rejected',
+              email: organizerEmail,
               title: savedEvent.title,
               reason: dto.reason,
-            });
-            await this.emailService.sendEmail(
-              organizerEmail,
-              template.subject,
-              template.text,
-              template.html,
-            );
-          } catch (mailErr) {
-            this.logger.error(
-              `Failed to send rejection email: ${mailErr.message}`,
-            );
-          }
-
-          return { message: 'Shadow copy revision rejected.', event: savedEvent };
+            },
+          };
         }
       }
 
@@ -1113,24 +1109,15 @@ export class EventsService {
 
         const savedEvent = await manager.save(event);
 
-        // Send approval notice
-        try {
-          const template = this.emailService.getEmailTemplate('event.approved', {
+        return {
+          message: `Event approved successfully and is now live. Status: ${savedEvent.status}`,
+          event: savedEvent,
+          emailAction: {
+            type: 'approved',
+            email: organizerEmail,
             title: savedEvent.title,
-          });
-          await this.emailService.sendEmail(
-            organizerEmail,
-            template.subject,
-            template.text,
-            template.html,
-          );
-        } catch (mailErr) {
-          this.logger.error(
-            `Failed to send approval email: ${mailErr.message}`,
-          );
-        }
-
-        return { message: `Event approved successfully and is now live. Status: ${savedEvent.status}`, event: savedEvent };
+          },
+        };
       } else {
         // REJECT Initial Config
         event.status = EventStatus.REJECTED;
@@ -1144,30 +1131,58 @@ export class EventsService {
 
         const savedEvent = await manager.save(event);
 
-        // Send rejection notice
-        try {
-          const template = this.emailService.getEmailTemplate('event.rejected', {
+        return {
+          message: 'Event review rejected. Event unlocked for editing.',
+          event: savedEvent,
+          emailAction: {
+            type: 'rejected',
+            email: organizerEmail,
             title: savedEvent.title,
             reason: dto.reason,
-          });
-          await this.emailService.sendEmail(
-            organizerEmail,
-            template.subject,
-            template.text,
-            template.html,
-          );
-        } catch (mailErr) {
-          this.logger.error(
-            `Failed to send rejection email: ${mailErr.message}`,
-          );
-        }
-
-        return { message: 'Event review rejected. Event unlocked for editing.', event: savedEvent };
+          },
+        };
       }
     });
 
     await this.invalidateEventCache(eventId);
-    return result;
+
+    if (result?.emailAction) {
+      const { type, email, title, publishAt, reason } = result.emailAction;
+      try {
+        if (type === 'approved') {
+          const template = this.emailService.getEmailTemplate('event.approved', {
+            title,
+            ...(publishAt ? { publishAt } : {}),
+          });
+          await this.emailService.sendEmail(
+            email,
+            template.subject,
+            template.text,
+            template.html,
+          );
+        } else {
+          const template = this.emailService.getEmailTemplate('event.rejected', {
+            title,
+            reason,
+          });
+          await this.emailService.sendEmail(
+            email,
+            template.subject,
+            template.text,
+            template.html,
+          );
+        }
+      } catch (mailErr) {
+        this.logger.error(
+          `Failed to send review email (${type}): ${mailErr.message}`,
+        );
+      }
+    }
+
+    return {
+      message: result.message,
+      event: result.event,
+    };
   }
 
   /**
@@ -1189,6 +1204,10 @@ export class EventsService {
         throw new NotFoundException(EventMessages.NOT_FOUND);
       }
 
+      if (event.status !== EventStatus.PUBLISHED) {
+        throw new ConflictException('Only published events can be cancelled.');
+      }
+
       event.status = EventStatus.CANCELLED;
       event.statusLog.push({
         action: 'CANCELLED',
@@ -1207,6 +1226,14 @@ export class EventsService {
       for (const session of sessions) {
         session.status = SessionStatus.CANCELLED;
         await manager.save(session);
+
+        const tickets = await manager.find(SessionTicketType, {
+          where: { sessionId: session.id },
+        });
+        for (const ticket of tickets) {
+          ticket.status = TicketTypeStatus.INACTIVE;
+          await manager.save(ticket);
+        }
       }
 
       // Fetch the organizer
@@ -1214,28 +1241,43 @@ export class EventsService {
         where: { id: event.organizerId },
       });
 
-      if (organizer) {
-        try {
-          const template = this.emailService.getEmailTemplate('event.rejected', {
-            title: savedEvent.title,
-            reason: `EMERGENCY TERMINATION: ${reason}`,
-          });
-          await this.emailService.sendEmail(
-            organizer.email || 'organizer@example.com',
-            `[CANCELLED] ${template.subject}`,
-            template.text,
-            template.html,
-          );
-        } catch (mailErr) {
-          this.logger.error(`Failed to send cancellation notification: ${mailErr.message}`);
-        }
-      }
-
-      return { message: 'Event and all associated sessions cancelled immediately.', event: savedEvent };
+      return {
+        message: 'Event and all associated sessions cancelled immediately.',
+        event: savedEvent,
+        emailAction: organizer
+          ? {
+              email: organizer.email || 'organizer@example.com',
+              title: savedEvent.title,
+              reason: `EMERGENCY TERMINATION: ${reason}`,
+            }
+          : null,
+      };
     });
 
     await this.invalidateEventCache(eventId);
-    return result;
+
+    if (result?.emailAction) {
+      const { email, title, reason: emailReason } = result.emailAction;
+      try {
+        const template = this.emailService.getEmailTemplate('event.rejected', {
+          title,
+          reason: emailReason,
+        });
+        await this.emailService.sendEmail(
+          email,
+          `[CANCELLED] ${template.subject}`,
+          template.text,
+          template.html,
+        );
+      } catch (mailErr) {
+        this.logger.error(`Failed to send cancellation notification: ${mailErr.message}`);
+      }
+    }
+
+    return {
+      message: result.message,
+      event: result.event,
+    };
   }
 
   private slugify(text: string): string {
