@@ -18,6 +18,8 @@ export interface AuthActions {
 
 export type AuthStore = AuthState & AuthActions
 
+export type UseAuthStore = ReturnType<typeof createAuthStore>
+
 export function createAuthStore(storageKey: string) {
   return create<AuthStore>()(
     persist(

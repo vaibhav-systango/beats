@@ -99,14 +99,14 @@ export function LoginPage() {
           useAuthStore.getState().login(
             {
               id: data.account.id,
-              fullName: data.account.name,
+              fullName: data.account.fullName,
               email: null,
-              phone: data.account.mobileNumber,
+              phone: data.account.phoneNumber,
             },
-            data.isNewUser
+            data.account.onboardingStatus === 'PROFILE_PENDING'
           )
 
-          if (data.isNewUser) {
+          if (data.account.onboardingStatus === 'PROFILE_PENDING') {
             router.push(USER_ROUTES.ONBOARDING)
           } else {
             router.push(USER_ROUTES.HOME)

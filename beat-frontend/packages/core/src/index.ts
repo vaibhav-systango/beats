@@ -1,5 +1,6 @@
 export * from './auth'
 export * from './constants/events.constants'
+export * from './constants/onboarding.constants'
 export * from './constants/routes.constants'
 export * from './constants/validation.constants'
 export * from './events'

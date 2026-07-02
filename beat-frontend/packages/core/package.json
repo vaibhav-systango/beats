@@ -10,6 +10,7 @@
   "dependencies": {
     "@beat/api-client": "workspace:*",
     "@beat/types": "workspace:*",
+    "@beat/ui": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
     "react": "^18.3.0",
     "react-router-dom": "^6.28.0",

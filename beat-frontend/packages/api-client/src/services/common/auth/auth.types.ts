@@ -1,4 +1,4 @@
-import type { UserRole } from '@beat/types'
+import type { UserOnboardingStatus, UserRole } from '@beat/types'
 
 export type DeliveryMethod = 'SMS' | 'VOICE'
 
@@ -28,15 +28,18 @@ export type VerifyOtpRequestBody = {
   otpCode: string
 }
 
+export type VerifyOtpAccount = {
+  id: string
+  fullName: string | null
+  phoneNumber: string
+  role: UserRole
+  onboardingStatus: UserOnboardingStatus
+}
+
 export type VerifyOtpResponse = {
   accessToken: string
   refreshToken: string
   isNewUser: boolean
   flowType: 'LOGIN' | 'SIGNUP'
-  account: {
-    id: string
-    name: string
-    mobileNumber: string
-    role: UserRole
-  }
+  account: VerifyOtpAccount
 }

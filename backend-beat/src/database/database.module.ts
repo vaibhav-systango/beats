@@ -8,6 +8,7 @@ import { EventSession } from './entities/event-session.entity';
 import { SessionCategory } from './entities/session-category.entity';
 import { SessionTicketType } from './entities/session-ticket-type.entity';
 import { UserRepository } from './repositories/user.repository';
+import { UserSessionRepository } from './repositories/user-session.repository';
 import { OtpRepository } from './repositories/otp.repository';
 import { EventRepository } from './repositories/event.repository';
 import { EventCategoryRepository } from './repositories/event-category.repository';
@@ -29,6 +30,7 @@ import { SessionTicketTypeRepository } from './repositories/session-ticket-type.
   ],
   providers: [
     UserRepository,
+    UserSessionRepository,
     OtpRepository,
     EventRepository,
     EventCategoryRepository,
@@ -38,6 +40,7 @@ import { SessionTicketTypeRepository } from './repositories/session-ticket-type.
   ],
   exports: [
     UserRepository,
+    UserSessionRepository,
     OtpRepository,
     EventRepository,
     EventCategoryRepository,

@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 
 import { DASHBOARD_ROUTES } from '../constants/routes.constants'
+import { OnboardingRoute } from './OnboardingRoute'
 import { ProtectedRoute } from './ProtectedRoute'
 import type { AuthSelector } from './types'
 
@@ -15,8 +16,11 @@ export interface CreateDashboardRouterConfig {
   dashboardLayout: ReactNode
   useAuth: AuthSelector
   routes: DashboardRouteConfig[]
+  onboardingElement?: ReactNode
   loginPath?: string
+  onboardingPath?: string
   dashboardPath?: string
+  requireOnboarding?: boolean
   rootElement?: ReactNode
 }
 
@@ -25,21 +29,50 @@ export function createDashboardRouter({
   dashboardLayout,
   useAuth,
   routes,
+  onboardingElement,
   loginPath = DASHBOARD_ROUTES.LOGIN,
+  onboardingPath = DASHBOARD_ROUTES.ONBOARDING,
   dashboardPath = DASHBOARD_ROUTES.DASHBOARD,
+  requireOnboarding = true,
   rootElement,
 }: CreateDashboardRouterConfig) {
-  return createBrowserRouter([
+  const routerRoutes = [
     { path: loginPath, element: loginElement },
+    ...(onboardingElement
+      ? [
+          {
+            path: onboardingPath,
+            element: (
+              <OnboardingRoute
+                useAuth={useAuth}
+                loginPath={loginPath}
+                dashboardPath={dashboardPath}
+              >
+                {onboardingElement}
+              </OnboardingRoute>
+            ),
+          },
+        ]
+      : []),
     {
       path: dashboardPath,
       element: (
-        <ProtectedRoute useAuth={useAuth} loginPath={loginPath}>
+        <ProtectedRoute
+          useAuth={useAuth}
+          loginPath={loginPath}
+          onboardingPath={onboardingPath}
+          requireOnboarding={requireOnboarding}
+        >
           {dashboardLayout}
         </ProtectedRoute>
       ),
       children: routes,
     },
-    { path: '/', element: rootElement ?? loginElement },
-  ])
+    {
+      path: DASHBOARD_ROUTES.ROOT,
+      element: rootElement ?? <Navigate to={loginPath} replace />,
+    },
+  ]
+
+  return createBrowserRouter(routerRoutes)
 }

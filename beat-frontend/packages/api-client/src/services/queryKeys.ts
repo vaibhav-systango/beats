@@ -11,6 +11,11 @@ export const QUERY_KEYS = {
       sendOtp: () => ['beat', 'common', 'auth', 'sendOtp'] as const,
       verifyOtp: () => ['beat', 'common', 'auth', 'verifyOtp'] as const,
     },
+    EVENT_CATEGORIES: {
+      all: () => ['beat', 'common', 'event-categories'] as const,
+      list: (params: { limit?: number; offset?: number }) =>
+        ['beat', 'common', 'event-categories', 'list', params] as const,
+    },
   },
   ORGANISER: {
     EVENTS: {

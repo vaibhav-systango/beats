@@ -42,6 +42,11 @@ export {
   verifyOtp,
   useSendOtp,
   useVerifyOtp,
+  onboardUser,
+  useOnboardUser,
+  getEventCategories,
+  fetchEventCategories,
+  useEventCategories,
 } from './services/common'
 export type {
   CreateEventInput,
@@ -55,6 +60,12 @@ export type {
   SendOtpResponse,
   VerifyOtpRequestBody,
   VerifyOtpResponse,
+  VerifyOtpAccount,
+  OnboardUserRequestBody,
+  OnboardUserResponse,
+  OnboardingLocation,
+  EventCategoriesListResponse,
+  GetEventCategoriesParams,
 } from './services/common'
 
 export {

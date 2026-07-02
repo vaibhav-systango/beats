@@ -42,6 +42,7 @@ export const HOME_COPY = {
 } as const
 
 export const ONBOARDING_COPY = {
-  TITLE: 'Welcome to Beats',
-  DESCRIPTION: 'Onboarding flow coming soon. You are signed in.',
+  title: 'Set up your vibe',
+  description: 'Tell us who you are so we can show you the best events.',
+  submitLabel: 'Complete setup',
 } as const
