@@ -1,11 +1,16 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { typeOrmConfig } from './config/typeorm.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { EventCategoriesModule } from './modules/event-categories/event-categories.module';
+import { EmailModule } from './providers/email/email.module';
+import { EventsModule } from './modules/events/events.module';
+import { CacheModule } from './providers/cache/cache.module';
+import { StorageModule } from './modules/storage/storage.module';
 import { LoggerModule, Params } from 'nestjs-pino';
 import { ulid } from 'ulid';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
@@ -40,6 +45,10 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     EventCategoriesModule,
     UsersModule,
+    EmailModule,
+    EventsModule,
+    CacheModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [

@@ -13,5 +13,13 @@ services:
       - minio_data:/data
     restart: unless-stopped
 
+  maildev:
+    image: maildev/maildev:latest
+    container_name: beats-maildev
+    ports:
+      - '1025:1025' # SMTP server port
+      - '1080:1080' # Web UI port
+    restart: unless-stopped
+
 volumes:
   minio_data:
