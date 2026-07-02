@@ -5,6 +5,7 @@ import {
   ApiParam,
   ApiQuery,
   ApiResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { CreateEventCategoryDto } from '../../dto/create-event-category.dto';
 import { UpdateEventCategoryDto } from '../../dto/update-event-category.dto';
@@ -13,6 +14,7 @@ import { EventCategoryResponseDto } from '../../dto/event-category-response.dto'
 export function CreateEventCategorySwagger() {
   return applyDecorators(
     ApiOperation({ summary: 'Create an event category' }),
+    ApiBearerAuth(),
     ApiBody({
       type: CreateEventCategoryDto,
       examples: {
@@ -30,6 +32,7 @@ export function CreateEventCategorySwagger() {
       type: EventCategoryResponseDto,
     }),
     ApiResponse({ status: 400, description: 'Bad Request' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
     ApiResponse({ status: 409, description: 'Category name already exists' }),
     ApiResponse({ status: 500, description: 'Internal Server Error' }),
   );
@@ -73,6 +76,7 @@ export function GetEventCategorySwagger() {
 export function UpdateEventCategorySwagger() {
   return applyDecorators(
     ApiOperation({ summary: 'Update an event category' }),
+    ApiBearerAuth(),
     ApiParam({ name: 'id', description: 'Event category ULID' }),
     ApiBody({
       type: UpdateEventCategoryDto,
@@ -91,6 +95,7 @@ export function UpdateEventCategorySwagger() {
       type: EventCategoryResponseDto,
     }),
     ApiResponse({ status: 400, description: 'Bad Request' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
     ApiResponse({ status: 404, description: 'Category not found' }),
     ApiResponse({ status: 409, description: 'Category name already exists' }),
     ApiResponse({ status: 500, description: 'Internal Server Error' }),
@@ -100,11 +105,13 @@ export function UpdateEventCategorySwagger() {
 export function DeleteEventCategorySwagger() {
   return applyDecorators(
     ApiOperation({ summary: 'Delete an event category' }),
+    ApiBearerAuth(),
     ApiParam({ name: 'id', description: 'Event category ULID' }),
     ApiResponse({
       status: 200,
       description: 'Event category deleted successfully',
     }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
     ApiResponse({ status: 404, description: 'Category not found' }),
     ApiResponse({
       status: 409,

@@ -5,6 +5,9 @@ import { Role } from '../database/entities/role.entity';
 import { Otp } from '../database/entities/otp.entity';
 import { EventCategory } from '../database/entities/event-category.entities';
 import { Event } from '../database/entities/event.entity';
+import { EventSession } from '../database/entities/event-session.entity';
+import { SessionCategory } from '../database/entities/session-category.entity';
+import { SessionTicketType } from '../database/entities/session-ticket-type.entity';
 import { Permission } from '../database/entities/permission.entity';
 import { RoutePermission } from '../database/entities/route-permission.entity';
 import { UserSession } from '../database/entities/user-session.entity';
@@ -22,7 +25,7 @@ export const typeOrmConfig: DataSourceOptions = {
     Role,
     Otp,
     EventCategory,
-    Event,
+     Event, EventSession, SessionCategory, SessionTicketType,
     Permission,
     RoutePermission,
     UserSession,
