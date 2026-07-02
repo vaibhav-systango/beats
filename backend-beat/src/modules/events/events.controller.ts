@@ -31,8 +31,11 @@ import { EventsService } from './services/events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { CreateEventSessionDto } from './dto/create-session.dto';
+import { ReviewEventDto } from './dto/review-event.dto';
 import { EventMessages, EventConstants } from './constants/events.constants';
 import { EventsHelper } from './helpers/events.helper';
+import { ReviewEventSwagger } from './decorators/swagger/review-event.decorator';
+import { CancelEventSwagger } from './decorators/swagger/cancel-event.decorator';
 
 // Swagger decorators
 import { CreateEventSwagger } from './decorators/swagger/create-event.decorator';
@@ -50,7 +53,7 @@ import {
 } from './decorators/swagger/session.decorators';
 
 @ApiTags('Events')
-@Controller('api/v1/events')
+@Controller('events')
 export class EventsController {
   private readonly logger = new Logger(EventsController.name);
 
@@ -370,6 +373,66 @@ export class EventsController {
         throw error;
       }
       this.logger.error('Error occurred in fetching event details: ', error);
+      throw new InternalServerErrorException({
+        message: EventMessages.UNEXPECTED_ERROR,
+      });
+    }
+  }
+
+  /**
+   * Admin reviews an event creation or revision.
+   */
+  @Post('admin/:id/review')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ReviewEventSwagger()
+  async review(
+    @Param('id', UlidValidationPipe) id: string,
+    @Body() dto: ReviewEventDto,
+    @Request() req: any,
+  ) {
+    try {
+      const user = req.user;
+      if (user.role !== UserRole.ADMIN) {
+        throw new ForbiddenException(EventMessages.ADMIN_ONLY_REVIEW);
+      }
+      dto.adminId = user.sub;
+      return await this.eventsService.reviewEvent(id, dto);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Error occurred in admin review: ', error);
+      throw new InternalServerErrorException({
+        message: EventMessages.UNEXPECTED_ERROR,
+      });
+    }
+  }
+
+  /**
+   * Emergency Cancellation of a live show.
+   * Instantly stops booking actions for all tickets.
+   */
+  @Post('admin/:id/cancel')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @CancelEventSwagger()
+  async cancel(
+    @Param('id', UlidValidationPipe) id: string,
+    @Body('reason') reason: string,
+    @Request() req: any,
+  ) {
+    try {
+      const user = req.user;
+      if (user.role !== UserRole.ADMIN) {
+        throw new ForbiddenException(EventMessages.ADMIN_ONLY_CANCEL);
+      }
+      return await this.eventsService.cancelEvent(id, user.sub, reason);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Error occurred in admin cancel: ', error);
       throw new InternalServerErrorException({
         message: EventMessages.UNEXPECTED_ERROR,
       });

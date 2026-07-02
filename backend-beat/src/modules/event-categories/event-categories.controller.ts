@@ -13,9 +13,11 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  UseGuards,
   Logger,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 import { EventCategoryService } from './services/event-category.service';
 import { CreateEventCategoryDto } from './dto/create-event-category.dto';
@@ -39,6 +41,7 @@ export class EventCategoriesController {
   constructor(private readonly eventCategoryService: EventCategoryService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   @CreateEventCategorySwagger()
   async create(@Body() dto: CreateEventCategoryDto) {
@@ -90,6 +93,7 @@ export class EventCategoriesController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   @UpdateEventCategorySwagger()
   async update(@Param('id', UlidValidationPipe) id: string, @Body() dto: UpdateEventCategoryDto) {
     try {
@@ -111,6 +115,7 @@ export class EventCategoriesController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   @DeleteEventCategorySwagger()
   async remove(@Param('id', UlidValidationPipe) id: string) {
     try {
