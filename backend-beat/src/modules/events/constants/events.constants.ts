@@ -14,6 +14,7 @@ export const EventMessages = {
   INVALID_TICKET: 'Staged Ticket ID is invalid or belongs to another session.',
   NOT_PENDING: 'Only events in PENDING_APPROVAL status can be reviewed.',
   CHECKOUT_SUCCESS: 'Ticket checkout successful! Order processed.',
+  NO_ACTIVE_ADMIN_USERS: 'No active admin users found.',
 
   // Validation Guardrails
   SESSION_REQUIRED: 'At least one event session is required.',
