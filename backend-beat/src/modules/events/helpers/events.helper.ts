@@ -4,6 +4,7 @@ import { StorageService } from '../../storage/services/storage.service';
 import { UserRepository } from 'src/database/repositories/user.repository';
 import { EmailService } from 'src/providers/email/email-template';
 import { UserRole } from 'src/common/enums/user.enums';
+import { EventMessages } from '../constants/events.constants';
 
 @Injectable()
 export class EventsHelper {
@@ -264,7 +265,7 @@ export class EventsHelper {
     );
 
     if (emails.length === 0) {
-      throw new InternalServerErrorException('No active admin users found.');
+       throw new InternalServerErrorException(EventMessages.NO_ACTIVE_ADMIN_USERS);
     }
 
     return emails;
@@ -284,8 +285,9 @@ export class EventsHelper {
         this.emailService
           .sendEmail(email, template.subject, template.text, template.html)
           .catch((err) => {
+            const maskedEmail = email.replace(/(.{2}).+(@.+)/, '$1***$2');
             this.logger.error(
-              `Failed to send email to admin (${email}): ${err.message}`,
+              `Failed to send email to admin (${maskedEmail}): ${err.message}`,
             );
           }),
       ),
