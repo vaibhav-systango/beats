@@ -31,6 +31,7 @@ import { EventSessionRepository } from '../../../database/repositories/event-ses
 import { SessionTicketTypeRepository } from '../../../database/repositories/session-ticket-type.repository';
 import { EventMessages, EventConstants } from '../constants/events.constants';
 import { EventValidator } from './events.validator';
+import { EventsHelper } from '../helpers/events.helper';
 
 @Injectable()
 export class EventsService {
@@ -43,6 +44,7 @@ export class EventsService {
     private readonly eventSessionRepository: EventSessionRepository,
     private readonly sessionTicketTypeRepository: SessionTicketTypeRepository,
     private readonly cacheService: CacheService,
+    private readonly eventsHelper: EventsHelper,
   ) {}
 
   /**
@@ -137,27 +139,22 @@ export class EventsService {
 
       // Notify admin team
       try {
-        const adminEmail = process.env.ADMIN_EMAIL || 'admin@beats-events.com';
         const details = await this.buildEventDetailsHtml(event.id);
         const orgUser = await this.dataSource.getRepository(User).findOne({
           where: { id: organizerId },
         });
-        const organizerDisplayName = (orgUser?.fullName && orgUser.fullName.trim() !== '') ? orgUser.fullName.trim() : organizerId;
+        const organizerDisplayName =
+          orgUser?.fullName && orgUser.fullName.trim() !== ''
+            ? orgUser.fullName.trim()
+            : organizerId;
 
-        const template = this.emailService.getEmailTemplate('event.submitted', {
+        await this.eventsHelper.sendEmailToAdmins('event.submitted', {
           title: event.title,
           organizerId: organizerDisplayName,
           submitType: 'Shadow Copy Modification Revision',
-
           details,
           eventId: event.id,
         });
-        await this.emailService.sendEmail(
-          adminEmail,
-          template.subject,
-          template.text,
-          template.html,
-        );
       } catch (mailErr) {
         this.logger.error(
           `Failed to send revision submission email: ${mailErr.message}`,
@@ -255,27 +252,22 @@ export class EventsService {
 
     // Alert admin team
     try {
-      const adminEmail = process.env.ADMIN_EMAIL || 'admin@beats-events.com';
       const details = await this.buildEventDetailsHtml(savedEvent.id);
       const orgUser = await this.dataSource.getRepository(User).findOne({
         where: { id: organizerId },
       });
-      const organizerDisplayName = (orgUser?.fullName && orgUser.fullName.trim() !== '') ? orgUser.fullName.trim() : organizerId;
+      const organizerDisplayName =
+        orgUser?.fullName && orgUser.fullName.trim() !== ''
+          ? orgUser.fullName.trim()
+          : organizerId;
 
-      const template = this.emailService.getEmailTemplate('event.submitted', {
+      await this.eventsHelper.sendEmailToAdmins('event.submitted', {
         title: savedEvent.title,
         organizerId: organizerDisplayName,
         submitType: 'Event Dedicated Submission',
-
         details,
         eventId: savedEvent.id,
       });
-      await this.emailService.sendEmail(
-        adminEmail,
-        template.subject,
-        template.text,
-        template.html,
-      );
     } catch (mailErr) {
       this.logger.error(
         `Failed to send email to admin: ${mailErr.message}`,
@@ -997,7 +989,12 @@ export class EventsService {
       const organizer = await manager.getRepository(User).findOne({
         where: { id: event.organizerId },
       });
-      const organizerEmail = organizer?.email || 'organizer@example.com';
+
+      if (!organizer) {
+        throw new NotFoundException(
+          `Organizer record not found for organizer ID: ${event.organizerId}`,
+        );
+      }
 
       // 2. Identify if there is a pending revision (Shadow Copy Pattern)
       const revisionIndex = event.statusLog.findIndex(
@@ -1048,7 +1045,8 @@ export class EventsService {
             event: savedEvent,
             emailAction: {
               type: 'approved',
-              email: organizerEmail,
+              organizerId: organizer.id,
+              organizerEmail: organizer.email,
               title: savedEvent.title,
               publishAt: 'Live (Immediate Revision)',
             },
@@ -1074,7 +1072,8 @@ export class EventsService {
             event: savedEvent,
             emailAction: {
               type: 'rejected',
-              email: organizerEmail,
+              organizerId: organizer.id,
+              organizerEmail: organizer.email,
               title: savedEvent.title,
               reason: dto.reason,
             },
@@ -1114,7 +1113,8 @@ export class EventsService {
           event: savedEvent,
           emailAction: {
             type: 'approved',
-            email: organizerEmail,
+            organizerId: organizer.id,
+            organizerEmail: organizer.email,
             title: savedEvent.title,
           },
         };
@@ -1136,7 +1136,8 @@ export class EventsService {
           event: savedEvent,
           emailAction: {
             type: 'rejected',
-            email: organizerEmail,
+            organizerId: organizer.id,
+            organizerEmail: organizer.email,
             title: savedEvent.title,
             reason: dto.reason,
           },
@@ -1147,35 +1148,59 @@ export class EventsService {
     await this.invalidateEventCache(eventId);
 
     if (result?.emailAction) {
-      const { type, email, title, publishAt, reason } = result.emailAction;
-      try {
-        if (type === 'approved') {
-          const template = this.emailService.getEmailTemplate('event.approved', {
-            title,
-            ...(publishAt ? { publishAt } : {}),
-          });
-          await this.emailService.sendEmail(
-            email,
-            template.subject,
-            template.text,
-            template.html,
+      const { type, organizerId, organizerEmail, title, publishAt, reason } =
+        result.emailAction;
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const isValidEmail =
+        organizerEmail && emailRegex.test(organizerEmail.trim());
+
+      if (!isValidEmail) {
+        this.logger.warn(
+          `Organizer notification skipped. No valid email configured for organizer ID: ${organizerId}. Configured email: "${organizerEmail || ''}"`,
+        );
+      } else {
+        const email = organizerEmail.trim();
+        try {
+          if (type === 'approved') {
+            const template = this.emailService.getEmailTemplate(
+              'event.approved',
+              {
+                title,
+                ...(publishAt ? { publishAt } : {}),
+              },
+            );
+            await this.emailService.sendEmail(
+              email,
+              template.subject,
+              template.text,
+              template.html,
+            );
+          } else {
+            const template = this.emailService.getEmailTemplate(
+              'event.rejected',
+              {
+                title,
+                reason,
+              },
+            );
+            await this.emailService.sendEmail(
+              email,
+              template.subject,
+              template.text,
+              template.html,
+            );
+          }
+          this.logger.log(
+            `Successfully sent event review email (${type}) to organizer ID: ${organizerId}, email: ${email} for event ID: ${eventId}`,
           );
-        } else {
-          const template = this.emailService.getEmailTemplate('event.rejected', {
-            title,
-            reason,
-          });
-          await this.emailService.sendEmail(
-            email,
-            template.subject,
-            template.text,
-            template.html,
+        } catch (mailErr) {
+          const errorInstance = mailErr instanceof Error ? mailErr : new Error(String(mailErr));
+          this.logger.error(
+            `Failed to send review email (${type}) to organizer ID: ${organizerId}, email: ${email} for event ID: ${eventId}. Error: ${errorInstance.message}`,
+            errorInstance.stack,
           );
         }
-      } catch (mailErr) {
-        this.logger.error(
-          `Failed to send review email (${type}): ${mailErr.message}`,
-        );
       }
     }
 
@@ -1241,36 +1266,68 @@ export class EventsService {
         where: { id: event.organizerId },
       });
 
+      if (!organizer) {
+        throw new NotFoundException(
+          `Organizer record not found for organizer ID: ${event.organizerId}`,
+        );
+      }
+
       return {
         message: 'Event and all associated sessions cancelled immediately.',
         event: savedEvent,
-        emailAction: organizer
-          ? {
-              email: organizer.email || 'organizer@example.com',
-              title: savedEvent.title,
-              reason: `EMERGENCY TERMINATION: ${reason}`,
-            }
-          : null,
+        emailAction: {
+          organizerId: organizer.id,
+          organizerEmail: organizer.email,
+          title: savedEvent.title,
+          reason: `EMERGENCY TERMINATION: ${reason}`,
+        },
       };
     });
 
     await this.invalidateEventCache(eventId);
 
     if (result?.emailAction) {
-      const { email, title, reason: emailReason } = result.emailAction;
-      try {
-        const template = this.emailService.getEmailTemplate('event.rejected', {
-          title,
-          reason: emailReason,
-        });
-        await this.emailService.sendEmail(
-          email,
-          `[CANCELLED] ${template.subject}`,
-          template.text,
-          template.html,
+      const {
+        organizerId,
+        organizerEmail,
+        title,
+        reason: emailReason,
+      } = result.emailAction;
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const isValidEmail =
+        organizerEmail && emailRegex.test(organizerEmail.trim());
+
+      if (!isValidEmail) {
+        this.logger.warn(
+          `Organizer notification skipped. No valid email configured for organizer ID: ${organizerId}. Configured email: "${organizerEmail || ''}"`,
         );
-      } catch (mailErr) {
-        this.logger.error(`Failed to send cancellation notification: ${mailErr.message}`);
+      } else {
+        const email = organizerEmail.trim();
+        try {
+          const template = this.emailService.getEmailTemplate(
+            'event.rejected',
+            {
+              title,
+              reason: emailReason,
+            },
+          );
+          await this.emailService.sendEmail(
+            email,
+            `[CANCELLED] ${template.subject}`,
+            template.text,
+            template.html,
+          );
+          this.logger.log(
+            `Successfully sent event cancellation email to organizer ID: ${organizerId}, email: ${email} for event ID: ${eventId}`,
+          );
+        } catch (mailErr) {
+          const errorInstance = mailErr instanceof Error ? mailErr : new Error(String(mailErr));
+          this.logger.error(
+            `Failed to send cancellation notification to organizer ID: ${organizerId}, email: ${email} for event ID: ${eventId}. Error: ${errorInstance.message}`,
+            errorInstance.stack,
+          );
+        }
       }
     }
 

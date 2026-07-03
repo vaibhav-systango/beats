@@ -18,4 +18,17 @@ export class UserRepository extends Repository<User> {
       relations: { role: true },
     });
   }
+
+  async findActiveEmailsByRole(roleName: UserRole): Promise<string[]> {
+    const users = await this.find({
+      where: {
+        role: { name: roleName },
+        isActive: true,
+      },
+      relations: { role: true },
+    });
+    return users
+      .map((user) => user.email?.trim())
+      .filter((email): email is string => !!email);
+  }
 }
