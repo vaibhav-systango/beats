@@ -2,6 +2,7 @@
 
 import {
   saveAccessToken,
+  saveRefreshToken,
   useSendOtp,
   useVerifyOtp,
   type DeliveryMethod,
@@ -96,6 +97,7 @@ export function LoginPage() {
       {
         onSuccess: (data) => {
           saveAccessToken(data.accessToken)
+          saveRefreshToken(data.refreshToken)
           useAuthStore.getState().login(
             {
               id: data.account.id,

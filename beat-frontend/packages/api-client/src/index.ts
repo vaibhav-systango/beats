@@ -4,6 +4,21 @@ export { ERROR_CONSTANTS } from './constants/error.constants'
 export { PAGINATION_CONSTANTS } from './constants/pagination.constants'
 export { STORAGE_CONSTANTS } from './constants/storage.constants'
 
+export {
+  getAccessToken,
+  saveAccessToken,
+  getRefreshToken,
+  saveRefreshToken,
+  clearAccessToken,
+  clearRefreshToken,
+  clearAuthSession,
+} from './lib/tokenStorage'
+
+export {
+  registerSessionExpiredHandler,
+  handleSessionExpired,
+} from './lib/authSession'
+
 export { apiClient, normalizeError } from './axios/axios'
 
 export {
@@ -21,12 +36,6 @@ export {
 } from './lib/apiErrorMessage'
 
 export { queryClient } from './lib/queryClient'
-export {
-  getAccessToken,
-  saveAccessToken,
-  clearAccessToken,
-  clearAuthSession,
-} from './lib/tokenStorage'
 
 export { QueryProvider } from './providers/QueryProvider'
 

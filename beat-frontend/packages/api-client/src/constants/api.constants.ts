@@ -13,6 +13,7 @@ export const API_CONSTANTS = {
   ORGANISER_EVENTS: `${API_V1_PREFIX}/events/my-events`,
   AUTH_SEND_OTP: '/auth/send-otp',
   AUTH_VERIFY_OTP: '/auth/verify-otp',
+  AUTH_REFRESH_TOKEN: '/auth/refresh-token',
   USERS_ONBOARDING: '/users',
   EVENT_CATEGORIES: `${API_V1_PREFIX}/event-categories`,
 } as const
