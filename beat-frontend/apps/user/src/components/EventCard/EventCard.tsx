@@ -9,7 +9,9 @@ export function EventCard({ event }: EventCardProps) {
   return (
     <article className="rounded-lg border border-gray-200 p-4">
       <h3 className="font-semibold">{event.title}</h3>
-      <p className="text-sm text-gray-500">{formatEventDateTime(event.startAt)}</p>
+      <p className="text-sm text-gray-500">
+        {event.startAt ? formatEventDateTime(event.startAt) : 'Date TBA'}
+      </p>
     </article>
   )
 }

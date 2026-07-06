@@ -1,18 +1,24 @@
 export type EventStatus =
   | 'DRAFT'
   | 'PENDING_APPROVAL'
+  | 'APPROVED'
+  | 'REJECTED'
   | 'PUBLISHED'
   | 'CANCELLED'
   | 'COMPLETED'
 
 export interface Event {
-  id: string // ULID
+  id: string
   title: string
   slug: string
-  description: string | null
-  startAt: number // epoch ms
+  description: string
   status: EventStatus
+  /** Mapped from backend `organizerId`. */
   organiserId: string
+  createdAt?: number
+  updatedAt?: number
+  /** Derived from the first session when available. */
+  startAt?: number
 }
 
 export interface GetEventsParams {
@@ -23,7 +29,14 @@ export interface GetEventsParams {
 
 export interface CreateEventInput {
   title: string
-  description?: string | null
-  startAt: number
-  status?: EventStatus
+  description?: string
+  slug?: string
 }
+
+export interface UpdateEventInput {
+  title?: string
+  description?: string
+  slug?: string
+}
+
+export type LocationType = 'VENUE' | 'ONLINE' | 'RECORDED'

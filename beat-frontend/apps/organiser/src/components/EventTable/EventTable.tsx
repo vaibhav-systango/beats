@@ -1,7 +1,9 @@
+import { Link } from 'react-router-dom'
 import type { Event } from '@beat/types'
 import { formatEventDateTime } from '@beat/utils'
 
 import { ORGANISER_EVENTS_COPY } from '@/constants'
+import { ORGANISER_PATHS } from '@/constants/routes.constants'
 
 export interface EventTableProps {
   events: Event[]
@@ -23,8 +25,17 @@ export function EventTable({ events }: EventTableProps) {
       <tbody>
         {events.map((event) => (
           <tr key={event.id} className="border-b">
-            <td className="py-2">{event.title}</td>
-            <td className="py-2">{formatEventDateTime(event.startAt)}</td>
+            <td className="py-2">
+              <Link
+                to={ORGANISER_PATHS.eventDetail(event.id)}
+                className="font-medium text-primary hover:underline"
+              >
+                {event.title}
+              </Link>
+            </td>
+            <td className="py-2 text-gray-600">
+              {event.startAt ? formatEventDateTime(event.startAt) : '—'}
+            </td>
           </tr>
         ))}
       </tbody>

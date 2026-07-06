@@ -71,11 +71,24 @@ export type {
 export {
   fetchOrganiserEvents,
   getOrganiserEvents,
+  fetchEventById,
+  createOrganiserEvent,
+  updateEvent,
+  submitEvent,
+  createEventSession,
+  updateEventSession,
   useEvents,
   useOrganiserEvents,
+  useEventDetails,
+  useCreateOrganiserEvent,
+  useUpdateEvent,
+  useSubmitEvent,
+  useCreateEventSession,
+  useUpdateEventSession,
 } from './services/organiser'
 export type {
   OrganiserEventsResponse,
   OrganiserEventsView,
   UseOrganiserEventsParams,
+  SubmitEventResult,
 } from './services/organiser'

@@ -62,6 +62,35 @@
   .animate-spin {
     animation: spin 1s linear infinite;
   }
+
+  .scrollbar-themed {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.45) hsl(var(--muted));
+  }
+
+  .scrollbar-themed::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-themed::-webkit-scrollbar-track {
+    margin: 4px 0;
+    background: transparent;
+  }
+
+  .scrollbar-themed::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+
+  .scrollbar-themed::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.6);
+  }
+
+  .scrollbar-themed::-webkit-scrollbar-button {
+    display: none;
+    height: 0;
+    width: 0;
+  }
 }
 
 @keyframes spin {

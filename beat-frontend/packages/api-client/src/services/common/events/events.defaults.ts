@@ -8,7 +8,7 @@ export const EVENT_ENTITY_DEFAULTS = {
   id: '',
   title: '',
   slug: '',
-  description: null,
+  description: '',
   startAt: 0,
   status: 'DRAFT' as EventStatus,
   organiserId: '',

@@ -22,6 +22,8 @@ export const QUERY_KEYS = {
       all: () => ['beat', 'organiser', 'events'] as const,
       list: (page: number, limit: number) =>
         ['beat', 'organiser', 'events', 'list', page, limit] as const,
+      detail: (id: string) =>
+        ['beat', 'organiser', 'events', 'detail', id] as const,
     },
   },
 } as const
