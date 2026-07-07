@@ -40,3 +40,7 @@ export const AuthConstants = {
   ACCESS_TOKEN_EXPIRY: process.env.ACCESS_TOKEN_EXPIRY || '15m',
   REFRESH_TOKEN_EXPIRY: process.env.REFRESH_TOKEN_EXPIRY || '30d',
 };
+
+export const ROUTE_PERMISSION_ERRORS = {
+  PERMISSION_DENIED: 'You do not have permission to access this resource.',
+};
