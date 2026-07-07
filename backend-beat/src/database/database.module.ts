@@ -15,6 +15,11 @@ import { EventCategoryRepository } from './repositories/event-category.repositor
 import { EventSessionRepository } from './repositories/event-session.repository';
 import { SessionCategoryRepository } from './repositories/session-category.repository';
 import { SessionTicketTypeRepository } from './repositories/session-ticket-type.repository';
+import { Role } from './entities/role.entity';
+import { Permission } from './entities/permission.entity';
+import { RoutePermission } from './entities/route-permission.entity';
+import { RoleRepository } from './repositories/role.repository';
+import { RoutePermissionRepository } from './repositories/route-permission.repository';
 
 @Module({
   imports: [
@@ -26,6 +31,9 @@ import { SessionTicketTypeRepository } from './repositories/session-ticket-type.
       EventSession,
       SessionCategory,
       SessionTicketType,
+      Role,
+      Permission,
+      RoutePermission,
     ]),
   ],
   providers: [
@@ -37,6 +45,8 @@ import { SessionTicketTypeRepository } from './repositories/session-ticket-type.
     EventSessionRepository,
     SessionCategoryRepository,
     SessionTicketTypeRepository,
+    RoleRepository,
+    RoutePermissionRepository,
   ],
   exports: [
     UserRepository,
@@ -47,6 +57,8 @@ import { SessionTicketTypeRepository } from './repositories/session-ticket-type.
     EventSessionRepository,
     SessionCategoryRepository,
     SessionTicketTypeRepository,
+    RoleRepository,
+    RoutePermissionRepository,
   ],
 })
 export class DatabaseModule {}
