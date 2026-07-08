@@ -114,6 +114,7 @@ export const EVENT_EDITOR_COPY = {
   PUBLISH_TITLE: 'Your event is almost ready to publish',
   PUBLISH_DESCRIPTION:
     'Review your settings and let everyone find your event.',
+  VIEW_YOUR_EVENT: 'View your event',
   SAVE_DRAFT: 'Save as draft',
   PUBLISH: 'Publish',
   PUBLISHING: 'Publishing…',

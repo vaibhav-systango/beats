@@ -35,7 +35,7 @@ export function EventTable({ events }: EventTableProps) {
           <tr key={event.id} className="border-b border-border last:border-b-0">
             <td className="px-4 py-3 sm:px-6">
               <Link
-                to={ORGANISER_PATHS.eventDetail(event.id)}
+                to={ORGANISER_PATHS.eventStep(event.id, 'basic-info')}
                 className="font-medium text-foreground transition-colors hover:text-primary"
               >
                 {event.title}

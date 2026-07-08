@@ -1,6 +1,5 @@
 import {
   useCreateEventSession,
-  useEventCategories,
   useUpdateEvent,
   useUpdateEventSession,
 } from '@beat/api-client'
@@ -57,7 +56,6 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
   const updateEvent = useUpdateEvent()
   const createSession = useCreateEventSession()
   const updateSession = useUpdateEventSession()
-  const { data: categoriesResponse } = useEventCategories({ limit: 100, offset: 0 })
 
   const [title, setTitle] = useState(event.title)
   const [description, setDescription] = useState(event.description)
@@ -79,16 +77,11 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
   const [endTime, setEndTime] = useState(datetimeLocalToTime(epochToDatetimeLocal(session?.endAt)))
   const [timezone, setTimezone] = useState<string>(TIMEZONE_OPTIONS[0].value)
   const [capacity, setCapacity] = useState(String(session?.capacity ?? 100))
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    session?.categoryIds?.[0] ?? ''
-  )
   const [titleError, setTitleError] = useState<string | null>(null)
   const [descriptionError, setDescriptionError] = useState<string | null>(null)
   const [capacityError, setCapacityError] = useState<string | null>(null)
-  const [categoryError, setCategoryError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const categories = categoriesResponse?.data ?? []
   const isSaving =
     updateEvent.isPending || createSession.isPending || updateSession.isPending
   const isVenue = locationType === 'VENUE'
@@ -98,11 +91,6 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
     setTitle(event.title)
     setDescription(event.description)
   }, [event.title, event.description])
-
-  const selectCategory = (categoryId: string) => {
-    setSelectedCategoryId(categoryId)
-    setCategoryError(null)
-  }
 
   const resetVenueLocation = () => {
     setCoordinates({
@@ -125,10 +113,6 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
 
     if (description.trim()) {
       eventPatch.description = description.trim()
-    }
-
-    if (selectedCategoryId) {
-      sessionPatch.categoryIds = [selectedCategoryId]
     }
 
     const mode = LOCATION_TYPE_TO_MODE[locationType]
@@ -207,7 +191,7 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
   }
 
   const buildSessionInput = (startAt: number, endAt: number, mode: SessionMode) => ({
-    categoryIds: selectedCategoryId ? [selectedCategoryId] : [],
+    categoryIds: session?.categoryIds ?? [],
     title: title.trim(),
     startAt,
     endAt,
@@ -234,22 +218,13 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
     const nextTitleError = validateEventName(title)
     const nextDescriptionError = validateEventDescription(description)
     const nextCapacityError = validateCapacity(capacity)
-    const nextCategoryError = selectedCategoryId
-      ? null
-      : 'Select a category for this session.'
 
     setTitleError(nextTitleError)
     setDescriptionError(nextDescriptionError)
     setCapacityError(nextCapacityError)
-    setCategoryError(nextCategoryError)
 
-    if (nextTitleError || nextDescriptionError || nextCapacityError || nextCategoryError) {
-      setError(
-        nextTitleError ??
-          nextDescriptionError ??
-          nextCapacityError ??
-          nextCategoryError
-      )
+    if (nextTitleError || nextDescriptionError || nextCapacityError) {
+      setError(nextTitleError ?? nextDescriptionError ?? nextCapacityError)
       return false
     }
 
@@ -432,10 +407,6 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
       capacityError={capacityError}
       onCapacityChange={handleCapacityChange}
       onCapacityBlur={handleCapacityBlur}
-      categories={categories}
-      selectedCategoryId={selectedCategoryId}
-      categoryError={categoryError}
-      onCategorySelect={selectCategory}
       onTitleChange={handleTitleChange}
       onTitleBlur={handleTitleBlur}
       onDescriptionChange={handleDescriptionChange}

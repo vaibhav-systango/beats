@@ -1,7 +1,7 @@
 import type { Event, EventSession } from '@beat/types'
 import { Button, Loader2 } from '@beat/ui'
 import { formatEventDateTime } from '@beat/utils'
-import { Link } from 'react-router-dom'
+import { Link, NavLink, useParams } from 'react-router-dom'
 
 import {
   EVENT_EDITOR_COPY,
@@ -19,15 +19,22 @@ import { formatSessionLabel } from '@/lib/sessionLabel'
 
 export interface EventEditorSidebarProps {
   event: Event
+  eventId: string
   sessions: EventSession[]
   session?: EventSession
   activeSessionId?: string
-  activeStep: EventEditorStep
-  onStepChange: (step: EventEditorStep) => void
   onSessionChange: (sessionId: string) => void
   onDuplicateSession: () => void
   isDuplicating?: boolean
   duplicateError?: string | null
+}
+
+function parseActiveStep(splat: string | undefined): EventEditorStep {
+  const segment = splat?.split('/')[0]
+  if (segment && EVENT_EDITOR_STEPS.includes(segment as EventEditorStep)) {
+    return segment as EventEditorStep
+  }
+  return 'basic-info'
 }
 
 function isStepComplete(
@@ -51,16 +58,17 @@ function isStepComplete(
 
 export function EventEditorSidebar({
   event,
+  eventId,
   sessions,
   session,
   activeSessionId,
-  activeStep,
-  onStepChange,
   onSessionChange,
   onDuplicateSession,
   isDuplicating = false,
   duplicateError,
 }: EventEditorSidebarProps) {
+  const { '*': splat } = useParams()
+  const activeStep = parseActiveStep(splat)
   const locationLabel =
     session?.eventAddress?.city ??
     (session?.mode === 'ONLINE' ? 'Online' : '—')
@@ -151,12 +159,14 @@ export function EventEditorSidebar({
         {EVENT_EDITOR_STEPS.map((step) => {
           const isActive = step === activeStep
           const isComplete = isStepComplete(step, event, session)
+          const stepPath = ORGANISER_PATHS.eventStep(eventId, step, {
+            sessionId: activeSessionId,
+          })
 
           return (
-            <button
+            <NavLink
               key={step}
-              type="button"
-              onClick={() => onStepChange(step)}
+              to={stepPath}
               className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
                 isActive ? 'bg-muted font-medium' : 'hover:bg-muted/60'
               }`}
@@ -174,7 +184,7 @@ export function EventEditorSidebar({
               {!isComplete && !isActive ? (
                 <span className="ml-auto h-2 w-2 rounded-full bg-red-400" />
               ) : null}
-            </button>
+            </NavLink>
           )
         })}
       </nav>

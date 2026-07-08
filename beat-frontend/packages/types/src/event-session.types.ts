@@ -1,3 +1,4 @@
+import type { EventCategory } from './event-category.types'
 import type { Event } from './event.types'
 
 export type SessionMode = 'OFFLINE' | 'ONLINE' | 'HYBRID'
@@ -87,6 +88,8 @@ export interface EventSession {
   promoterCommissionPercentage?: number
   status?: SessionStatus
   categoryIds?: string[]
+  /** Populated category objects returned by the event-details API. */
+  categories?: EventCategory[]
   ticketTypes?: SessionTicketType[]
   createdAt?: number
   updatedAt?: number

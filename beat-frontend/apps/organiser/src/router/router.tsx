@@ -1,9 +1,10 @@
 import { createDashboardRouter } from '@beat/core'
 
 import { DashboardLayout } from './DashboardLayout'
+import { EventDetailLayout } from './EventDetailLayout'
 
 import { ORGANISER_ROUTES } from '@/constants'
-import { Events, EventCreate, EventEditor, Login } from '@/pages'
+import { Events, EventCreate, Login } from '@/pages'
 import { useAuthStore } from '@/store'
 
 
@@ -15,6 +16,6 @@ export const router = createDashboardRouter({
   routes: [
     { path: ORGANISER_ROUTES.EVENTS, element: <Events /> },
     { path: ORGANISER_ROUTES.EVENT_CREATE, element: <EventCreate /> },
-    { path: ORGANISER_ROUTES.EVENT_DETAIL, element: <EventEditor /> },
+    { path: ORGANISER_ROUTES.EVENT_DETAIL, element: <EventDetailLayout /> },
   ],
 })

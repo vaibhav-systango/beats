@@ -1,4 +1,4 @@
-import type { EventCategory, LocationType, SessionLocation } from '@beat/types'
+import type { LocationType, SessionLocation } from '@beat/types'
 import { Button, Input, Label, Loader2 } from '@beat/ui'
 
 import { DateTimePicker, LocationTypeSelector, TimePicker, VenueLocationFields } from '@/components'
@@ -49,10 +49,6 @@ export interface BasicInfoStepViewProps {
   capacityError?: string | null
   onCapacityChange: (value: string) => void
   onCapacityBlur: () => void
-  categories: EventCategory[]
-  selectedCategoryId: string
-  categoryError?: string | null
-  onCategorySelect: (categoryId: string) => void
   onTitleChange: (value: string) => void
   onTitleBlur: () => void
   onDescriptionChange: (value: string) => void
@@ -110,10 +106,6 @@ export function BasicInfoStepView({
   capacityError,
   onCapacityChange,
   onCapacityBlur,
-  categories,
-  selectedCategoryId,
-  categoryError,
-  onCategorySelect,
   onTitleChange,
   onTitleBlur,
   onDescriptionChange,
@@ -262,36 +254,6 @@ export function BasicInfoStepView({
           {capacityError ? (
             <p className="text-sm text-red-500" role="alert">
               {capacityError}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="space-y-2">
-          <Label>Category *</Label>
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Event category">
-            {categories.map((category) => {
-              const isSelected = selectedCategoryId === category.id
-              return (
-                <button
-                  key={category.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={isSelected}
-                  onClick={() => onCategorySelect(category.id)}
-                  className={`rounded-full border px-3 py-1 text-sm ${
-                    isSelected
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border'
-                  }`}
-                >
-                  {category.name}
-                </button>
-              )
-            })}
-          </div>
-          {categoryError ? (
-            <p className="text-sm text-red-500" role="alert">
-              {categoryError}
             </p>
           ) : null}
         </div>

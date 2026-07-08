@@ -23,10 +23,6 @@ export function isBasicInfoComplete(event: Event, session?: EventSession): boole
     return false
   }
 
-  if (!session.categoryIds?.length) {
-    return false
-  }
-
   if (!session.startAt || !session.endAt || session.endAt <= session.startAt) {
     return false
   }

@@ -54,10 +54,9 @@ export function EventCreate() {
       },
       {
         onSuccess: (createdEvent) => {
-          navigate(
-            `${ORGANISER_PATHS.eventDetail(createdEvent.id)}?step=basic-info`,
-            { state: { locationType } }
-          )
+          navigate(ORGANISER_PATHS.eventStep(createdEvent.id, 'basic-info'), {
+            state: { locationType },
+          })
         },
         onError: (mutationError) => {
           setError(mutationError.message)

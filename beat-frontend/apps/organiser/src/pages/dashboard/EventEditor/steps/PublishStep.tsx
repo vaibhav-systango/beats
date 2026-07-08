@@ -1,11 +1,18 @@
-import { useEventCategories, useSubmitEvent } from '@beat/api-client'
+import {
+  useEventCategories,
+  useSubmitEvent,
+  useUpdateEventSession,
+} from '@beat/api-client'
 import type { Event, EventSession } from '@beat/types'
-import { Button, Loader2 } from '@beat/ui'
+import { Button, Label, Loader2 } from '@beat/ui'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { MultiSelect } from '@/components'
 import { EVENT_EDITOR_COPY } from '@/constants'
 import { ORGANISER_PATHS } from '@/constants/routes.constants'
+import { getPublicEventUrl } from '@/lib/eventPublicUrl'
+import { buildSessionPatchFormData } from '@/lib/sessionFormData'
 
 export interface PublishStepProps {
   event: Event
@@ -13,24 +20,94 @@ export interface PublishStepProps {
   onBack: () => void
 }
 
+function ExternalLinkIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    </svg>
+  )
+}
+
 export function PublishStep({ event, session, onBack }: PublishStepProps) {
   const navigate = useNavigate()
   const submitEvent = useSubmitEvent()
+  const updateSession = useUpdateEventSession()
   const { data: categoriesResponse } = useEventCategories({ limit: 100, offset: 0 })
 
-  const [listingType, setListingType] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC')
-  const [allowDiscussions, setAllowDiscussions] = useState(true)
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
+    session?.categoryIds ?? session?.categories?.map((category) => category.id) ?? []
+  )
+  const [categoryError, setCategoryError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const categories = categoriesResponse?.data ?? []
-  const selectedCategories = categories.filter((category) =>
-    session?.categoryIds?.includes(category.id)
-  )
+  const coverUrl = session?.eventSessionMedias?.cover?.url
+  const locationLabel =
+    session?.eventAddress?.venueName ??
+    session?.eventAddress?.city ??
+    (session?.mode === 'ONLINE' ? 'Online' : '—')
+  const publicEventUrl = event.slug ? getPublicEventUrl(event.slug) : null
+  const isSaving = submitEvent.isPending || updateSession.isPending
 
-  const handlePublish = () => {
+  const handleCategoryChange = (categoryIds: string[]) => {
+    setSelectedCategoryIds(categoryIds)
+    if (categoryIds.length > 0) {
+      setCategoryError(null)
+    }
+  }
+
+  const saveCategories = async () => {
+    if (!session?.id) {
+      return
+    }
+    const formData = buildSessionPatchFormData({ categoryIds: selectedCategoryIds })
+    await updateSession.mutateAsync({
+      eventId: event.id,
+      sessionId: session.id,
+      formData,
+    })
+  }
+
+  const handleSaveDraft = async () => {
     setError(null)
     setMessage(null)
+
+    try {
+      await saveCategories()
+      setMessage('Draft saved.')
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save.')
+    }
+  }
+
+  const handlePublish = async () => {
+    setError(null)
+    setMessage(null)
+
+    if (selectedCategoryIds.length === 0) {
+      setCategoryError('Select at least one category for this session.')
+      return
+    }
+
+    try {
+      await saveCategories()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save.')
+      return
+    }
 
     submitEvent.mutate(event.id, {
       onSuccess: (response) => {
@@ -56,64 +133,49 @@ export function PublishStep({ event, session, onBack }: PublishStepProps) {
 
       <div className="grid gap-8 lg:grid-cols-[1fr_280px]">
         <div className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Event category</label>
-            <p className="rounded-md border border-border px-3 py-2 text-sm">
-              {selectedCategories.length
-                ? selectedCategories.map((c) => c.name).join(', ')
-                : 'No categories selected'}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Listing type</label>
-            <div className="flex gap-3">
-              {(['PUBLIC', 'PRIVATE'] as const).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setListingType(type)}
-                  className={`flex-1 rounded-lg border px-4 py-3 text-sm font-medium ${
-                    listingType === type
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-border'
-                  }`}
-                >
-                  {type === 'PUBLIC' ? 'Public' : 'Private'}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-amber-600">
-              Listing visibility is UI-only until the backend adds a visibility field.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-            <span className="text-sm font-medium">Allow discussions on your event</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={allowDiscussions}
-              onClick={() => setAllowDiscussions((current) => !current)}
-              className={`relative h-6 w-11 rounded-full transition-colors ${
-                allowDiscussions ? 'bg-primary' : 'bg-muted'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                  allowDiscussions ? 'translate-x-5' : ''
-                }`}
-              />
-            </button>
+          <div className="max-w-md space-y-2">
+            <Label>Event category *</Label>
+            <MultiSelect
+              options={categories}
+              selectedIds={selectedCategoryIds}
+              onChange={handleCategoryChange}
+              placeholder="Select one or more categories"
+              invalid={Boolean(categoryError)}
+              ariaLabel="Event category"
+            />
+            {categoryError ? (
+              <p className="text-sm text-red-500" role="alert">
+                {categoryError}
+              </p>
+            ) : null}
           </div>
         </div>
 
-        <div className="rounded-lg border border-border p-4">
-          <div className="mb-3 h-24 rounded-md bg-muted" />
-          <p className="font-semibold">{event.title}</p>
-          <p className="text-sm text-muted-foreground">
-            {session?.eventAddress?.city ?? '—'}
-          </p>
+        <div>
+          <div className="rounded-lg border border-border p-4">
+            {coverUrl ? (
+              <img
+                src={coverUrl}
+                alt=""
+                className="mb-3 h-24 w-full rounded-md object-cover"
+              />
+            ) : (
+              <div className="mb-3 h-24 rounded-md bg-muted" />
+            )}
+            <p className="font-semibold leading-snug">{event.title}</p>
+            <p className="text-sm text-muted-foreground">{locationLabel}</p>
+          </div>
+          {publicEventUrl ? (
+            <a
+              href={publicEventUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              {EVENT_EDITOR_COPY.VIEW_YOUR_EVENT}
+              <ExternalLinkIcon className="h-4 w-4" />
+            </a>
+          ) : null}
         </div>
       </div>
 
@@ -133,14 +195,19 @@ export function PublishStep({ event, session, onBack }: PublishStepProps) {
           {EVENT_EDITOR_COPY.BACK}
         </Button>
         <div className="flex gap-3">
-          <Button type="button" variant="outline" onClick={onBack}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isSaving}
+            onClick={() => void handleSaveDraft()}
+          >
             {EVENT_EDITOR_COPY.SAVE_DRAFT}
           </Button>
           <Button
             type="button"
             variant="primary"
-            disabled={submitEvent.isPending}
-            onClick={handlePublish}
+            disabled={isSaving}
+            onClick={() => void handlePublish()}
           >
             {submitEvent.isPending ? (
               <>
