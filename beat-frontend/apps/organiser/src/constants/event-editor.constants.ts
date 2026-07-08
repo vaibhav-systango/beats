@@ -1,5 +1,10 @@
 import type { LocationType, SessionMode } from '@beat/types'
 
+export const EVENT_NAME_MIN_LENGTH = 20
+export const EVENT_DESCRIPTION_MIN_LENGTH = 100
+export const BANNER_MAX_BYTES = 10 * 1024 * 1024
+export const GALLERY_MAX_COUNT = 3
+
 export const EVENT_EDITOR_STEPS = [
   'basic-info',
   'media',
@@ -97,8 +102,12 @@ export const EVENT_EDITOR_COPY = {
   END_DATETIME_LABEL: 'End date & time *',
   VENUE_NAME_REQUIRED: 'Location name is required for venue events.',
   CITY_REQUIRED: 'City is required for venue events.',
+  LOCATION_SEARCH_PLACEHOLDER: 'Start typing location name for suggestions',
   MEDIA_TITLE: 'Media',
   MEDIA_DESCRIPTION: 'Upload banners and gallery media for your event.',
+  GALLERY_TITLE: 'Upload media',
+  GALLERY_DESCRIPTION: 'This media will appear under gallery section.',
+  GALLERY_UPLOAD_IMAGE: 'Upload Image',
   TICKETS_TITLE: 'Tickets',
   TICKETS_DESCRIPTION:
     'Increase visibility and drive higher conversions by selling directly on Beat.',
@@ -112,4 +121,9 @@ export const EVENT_EDITOR_COPY = {
   SETUP_TICKETING: 'Set up ticketing',
   SETUP_TICKETING_DESCRIPTION:
     'Create paid tickets, free entries and custom donation entries',
+  SESSIONS_TITLE: 'Sessions',
+  ADD_SESSION: '+ Add session',
+  DUPLICATE_SESSION: 'Duplicate session',
+  SWITCH_SESSION_CONFIRM:
+    'Switch session? Unsaved changes on this step will be lost.',
 } as const

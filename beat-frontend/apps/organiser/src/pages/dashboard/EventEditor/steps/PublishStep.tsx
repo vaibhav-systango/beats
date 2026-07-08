@@ -1,6 +1,6 @@
 import { useEventCategories, useSubmitEvent } from '@beat/api-client'
-import { Button, Loader2 } from '@beat/ui'
 import type { Event, EventSession } from '@beat/types'
+import { Button, Loader2 } from '@beat/ui'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 

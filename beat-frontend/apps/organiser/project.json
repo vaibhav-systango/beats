@@ -27,7 +27,10 @@
     },
     "lint": {
       "executor": "@nx/eslint:lint",
-      "outputs": ["{options.outputFile}"]
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["apps/organiser/src/**/*.{ts,tsx,js,jsx}"]
+      }
     }
   }
 }

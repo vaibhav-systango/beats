@@ -155,3 +155,108 @@ export function to24Hour(hour12: number, period: 'AM' | 'PM'): number {
   }
   return hour12 === 12 ? 12 : hour12 + 12
 }
+
+export function partsToDate(parts: DateTimeParts): Date {
+  return new Date(parts.year, parts.month, parts.day, parts.hour, parts.minute)
+}
+
+export function isBeforeDateTime(a: string, b: string): boolean {
+  const aParts = parseDatetimeLocal(a)
+  const bParts = parseDatetimeLocal(b)
+
+  if (!aParts || !bParts) {
+    return false
+  }
+
+  return partsToDate(aParts).getTime() < partsToDate(bParts).getTime()
+}
+
+export function getEarliestSelectableDay(
+  disablePastDates: boolean,
+  minDateTime?: string
+): Date | null {
+  const candidates: Date[] = []
+
+  if (disablePastDates) {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    candidates.push(today)
+  }
+
+  if (minDateTime) {
+    const minParts = parseDatetimeLocal(minDateTime)
+    if (minParts) {
+      candidates.push(new Date(minParts.year, minParts.month, minParts.day))
+    }
+  }
+
+  if (candidates.length === 0) {
+    return null
+  }
+
+  return candidates.reduce((latest, date) =>
+    date.getTime() > latest.getTime() ? date : latest
+  )
+}
+
+export function getMinSelectableTime(
+  selectedParts: DateTimeParts,
+  options: { minDateTime?: string; disablePastTimes?: boolean }
+): DateTimeParts | null {
+  const selectedDate = new Date(
+    selectedParts.year,
+    selectedParts.month,
+    selectedParts.day
+  )
+  const candidates: DateTimeParts[] = []
+
+  if (options.minDateTime) {
+    const minParts = parseDatetimeLocal(options.minDateTime)
+    if (
+      minParts &&
+      isSameDay(
+        selectedDate,
+        new Date(minParts.year, minParts.month, minParts.day)
+      )
+    ) {
+      candidates.push(minParts)
+    }
+  }
+
+  if (options.disablePastTimes) {
+    const now = new Date()
+    if (isSameDay(selectedDate, now)) {
+      candidates.push({
+        year: now.getFullYear(),
+        month: now.getMonth(),
+        day: now.getDate(),
+        hour: now.getHours(),
+        minute: now.getMinutes(),
+      })
+    }
+  }
+
+  if (candidates.length === 0) {
+    return null
+  }
+
+  return candidates.reduce((latest, parts) =>
+    partsToDate(parts).getTime() > partsToDate(latest).getTime() ? parts : latest
+  )
+}
+
+export function clampDateTimeParts(
+  parts: DateTimeParts,
+  options: { minDateTime?: string; disablePastTimes?: boolean }
+): DateTimeParts {
+  const minTime = getMinSelectableTime(parts, options)
+  if (!minTime) {
+    return parts
+  }
+
+  if (partsToDate(parts).getTime() < partsToDate(minTime).getTime()) {
+    return minTime
+  }
+
+  return parts
+}

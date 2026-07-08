@@ -2,9 +2,12 @@ import { Button, Label } from '@beat/ui'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import {
+  clampDateTimeParts,
   formatDatetimeDisplay,
   getCalendarCells,
   getDefaultDateTimeParts,
+  getEarliestSelectableDay,
+  getMinSelectableTime,
   getWeekdayLabels,
   isBeforeDay,
   isSameDay,
@@ -21,6 +24,8 @@ export interface DateTimePickerProps {
   value: string
   onChange: (value: string) => void
   disablePastDates?: boolean
+  disablePastTimes?: boolean
+  minDateTime?: string
 }
 
 const HOURS = Array.from({ length: 12 }, (_, index) => index + 1)
@@ -32,6 +37,8 @@ export function DateTimePicker({
   value,
   onChange,
   disablePastDates = false,
+  disablePastTimes = false,
+  minDateTime,
 }: DateTimePickerProps) {
   const panelId = useId()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -42,11 +49,18 @@ export function DateTimePicker({
   const [viewYear, setViewYear] = useState(selectedParts.year)
 
   const { hour: hour12, period } = to12Hour(selectedParts.hour)
-  const today = useMemo(() => {
-    const date = new Date()
-    date.setHours(0, 0, 0, 0)
-    return date
-  }, [])
+  const timeConstraints = useMemo(
+    () => ({ minDateTime, disablePastTimes }),
+    [minDateTime, disablePastTimes]
+  )
+  const earliestSelectableDay = useMemo(
+    () => getEarliestSelectableDay(disablePastDates, minDateTime),
+    [disablePastDates, minDateTime]
+  )
+  const minSelectableTime = useMemo(
+    () => getMinSelectableTime(selectedParts, timeConstraints),
+    [selectedParts, timeConstraints]
+  )
 
   useEffect(() => {
     const parts = parseDatetimeLocal(value)
@@ -79,16 +93,22 @@ export function DateTimePicker({
     selectedParts.day
   )
 
+  const commitParts = (next: DateTimeParts) => {
+    const clamped = clampDateTimeParts(next, timeConstraints)
+    onChange(toDatetimeLocal(clamped))
+  }
+
   const updateParts = (next: Partial<DateTimeParts>) => {
-    onChange(toDatetimeLocal({ ...selectedParts, ...next }))
+    commitParts({ ...selectedParts, ...next })
   }
 
   const selectDate = (date: Date) => {
-    if (disablePastDates && isBeforeDay(date, today)) {
+    if (earliestSelectableDay && isBeforeDay(date, earliestSelectableDay)) {
       return
     }
 
-    updateParts({
+    commitParts({
+      ...selectedParts,
       year: date.getFullYear(),
       month: date.getMonth(),
       day: date.getDate(),
@@ -99,6 +119,34 @@ export function DateTimePicker({
     const next = new Date(viewYear, viewMonth + delta, 1)
     setViewMonth(next.getMonth())
     setViewYear(next.getFullYear())
+  }
+
+  const isHourDisabled = (hour: number, hourPeriod: 'AM' | 'PM') => {
+    if (!minSelectableTime) {
+      return false
+    }
+
+    return to24Hour(hour, hourPeriod) < minSelectableTime.hour
+  }
+
+  const isMinuteDisabled = (minute: number) => {
+    if (!minSelectableTime) {
+      return false
+    }
+
+    if (selectedParts.hour > minSelectableTime.hour) {
+      return false
+    }
+
+    if (selectedParts.hour < minSelectableTime.hour) {
+      return true
+    }
+
+    return minute < minSelectableTime.minute
+  }
+
+  const isPeriodDisabled = (hourPeriod: 'AM' | 'PM') => {
+    return HOURS.every((hour) => isHourDisabled(hour, hourPeriod))
   }
 
   return (
@@ -142,7 +190,9 @@ export function DateTimePicker({
           <div className="mb-4 grid grid-cols-7 gap-1">
             {cells.map(({ date, inMonth }) => {
               const isSelected = isSameDay(date, selectedDate)
-              const isDisabled = disablePastDates && isBeforeDay(date, today)
+              const isDisabled = Boolean(
+                earliestSelectableDay && isBeforeDay(date, earliestSelectableDay)
+              )
 
               return (
                 <button
@@ -177,7 +227,7 @@ export function DateTimePicker({
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
               >
                 {HOURS.map((hour) => (
-                  <option key={hour} value={hour}>
+                  <option key={hour} value={hour} disabled={isHourDisabled(hour, period)}>
                     {hour}
                   </option>
                 ))}
@@ -191,7 +241,7 @@ export function DateTimePicker({
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
               >
                 {MINUTES.map((minute) => (
-                  <option key={minute} value={minute}>
+                  <option key={minute} value={minute} disabled={isMinuteDisabled(minute)}>
                     {String(minute).padStart(2, '0')}
                   </option>
                 ))}
@@ -208,8 +258,12 @@ export function DateTimePicker({
                 }
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
               >
-                <option value="AM">AM</option>
-                <option value="PM">PM</option>
+                <option value="AM" disabled={isPeriodDisabled('AM')}>
+                  AM
+                </option>
+                <option value="PM" disabled={isPeriodDisabled('PM')}>
+                  PM
+                </option>
               </select>
             </div>
           </div>

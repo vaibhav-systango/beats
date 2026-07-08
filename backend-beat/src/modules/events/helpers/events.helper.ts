@@ -2,9 +2,46 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { CreateEventSessionDto } from '../dto/create-session.dto';
 import { StorageService } from '../../storage/services/storage.service';
 
+const YOUTUBE_VIDEO_ID_PATTERN =
+  /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+
 @Injectable()
 export class EventsHelper {
   constructor(private readonly storageService: StorageService) {}
+
+  private extractYouTubeVideoId(url: string): string | null {
+    const match = url.trim().match(YOUTUBE_VIDEO_ID_PATTERN);
+    return match?.[1] ?? null;
+  }
+
+  normalizeEventSessionMedias(dto: CreateEventSessionDto): void {
+    if (!dto.eventSessionMedias?.videos?.length) {
+      return;
+    }
+
+    dto.eventSessionMedias.videos = dto.eventSessionMedias.videos.map((video) => {
+      const isYoutube =
+        video.mime_type === 'video/youtube' || Boolean(this.extractYouTubeVideoId(video.url));
+
+      if (!isYoutube) {
+        return video;
+      }
+
+      const videoId = this.extractYouTubeVideoId(video.url);
+      if (!videoId) {
+        throw new BadRequestException('Invalid YouTube video URL.');
+      }
+
+      return {
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+        mime_type: 'video/youtube',
+        size: 0,
+        thumbnail_url:
+          video.thumbnail_url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+        original_name: video.original_name || `youtube-${videoId}`,
+      };
+    });
+  }
 
   /**
    * Helper to parse stringified JSON fields from multipart/form-data.
@@ -68,6 +105,13 @@ export class EventsHelper {
         throw new BadRequestException('artistMetadata must be a valid JSON object.');
       }
     }
+    if (typeof parsed.eventSessionMedias === 'string' && parsed.eventSessionMedias.trim() !== '') {
+      try {
+        parsed.eventSessionMedias = JSON.parse(parsed.eventSessionMedias);
+      } catch (e) {
+        throw new BadRequestException('eventSessionMedias must be a valid JSON object.');
+      }
+    }
 
     // Convert index-keyed objects (from multipart array representation) to arrays
     const convertObjectToArray = (val: any) => {
@@ -123,6 +167,8 @@ export class EventsHelper {
     if (parsed.allowPromoters !== undefined && parsed.allowPromoters !== null) {
       parsed.allowPromoters = parsed.allowPromoters === 'true' || parsed.allowPromoters === true;
     }
+
+    this.normalizeEventSessionMedias(parsed);
 
     return parsed;
   }

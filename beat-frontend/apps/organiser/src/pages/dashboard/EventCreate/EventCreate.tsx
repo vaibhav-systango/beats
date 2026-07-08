@@ -1,10 +1,15 @@
 import { useCreateEvent } from '@beat/core'
-import { Button, Input, Label, Loader2 } from '@beat/ui'
 import type { LocationType } from '@beat/types'
+import { Button, Input, Label, Loader2 } from '@beat/ui'
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
-import { EventDescriptionEditor, LocationTypeSelector } from '@/components'
+import {
+  DashboardPage,
+  DashboardPageHeader,
+  EventDescriptionEditor,
+  LocationTypeSelector,
+} from '@/components'
 import {
   EVENT_CREATE_COPY,
 } from '@/constants'
@@ -62,16 +67,12 @@ export function EventCreate() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="mb-8">
-        <Link
-          to={ORGANISER_PATHS.EVENTS}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Back to events
-        </Link>
-        <h1 className="mt-4 text-3xl font-bold">{EVENT_CREATE_COPY.TITLE}</h1>
-      </div>
+    <DashboardPage width="narrow">
+      <DashboardPageHeader
+        title={EVENT_CREATE_COPY.TITLE}
+        backTo={ORGANISER_PATHS.EVENTS}
+        backLabel="Back to events"
+      />
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="space-y-2">
@@ -138,6 +139,6 @@ export function EventCreate() {
           </Button>
         </div>
       </form>
-    </div>
+    </DashboardPage>
   )
 }

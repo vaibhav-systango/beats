@@ -1,3 +1,9 @@
+export { DashboardPage, DashboardPageHeader, DashboardPageSection } from './DashboardPage/DashboardPage'
+export type {
+  DashboardPageHeaderProps,
+  DashboardPageProps,
+  DashboardPageSectionProps,
+} from './DashboardPage/DashboardPage'
 export { EventTable } from './EventTable/EventTable'
 export type { EventTableProps } from './EventTable/EventTable'
 export { EventDescriptionEditor } from './EventDescriptionEditor/EventDescriptionEditor'
@@ -14,4 +20,12 @@ export { VenueMapPicker } from './VenueMapPicker/VenueMapPicker'
 export type { VenueMapPickerProps } from './VenueMapPicker/VenueMapPicker'
 export { VenueLocationFields } from './VenueLocationFields/VenueLocationFields'
 export type { VenueLocationFieldsProps } from './VenueLocationFields/VenueLocationFields'
+export { GalleryUpload } from './GalleryUpload/GalleryUpload'
+export type { GalleryImageItem, GalleryUploadProps } from './GalleryUpload/GalleryUpload'
+export { YouTubePreview } from './YouTubePreview/YouTubePreview'
+export type { YouTubePreviewProps } from './YouTubePreview/YouTubePreview'
+export { BannerUpload } from './BannerUpload/BannerUpload'
+export type { BannerUploadProps } from './BannerUpload/BannerUpload'
 export { Sidebar } from './Sidebar/Sidebar'
+export { ThemeToggle } from './ThemeToggle'
+export { DashboardTopBar } from './DashboardTopBar'

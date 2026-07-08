@@ -1,10 +1,11 @@
 import { createDashboardRouter } from '@beat/core'
 
+import { DashboardLayout } from './DashboardLayout'
+
 import { ORGANISER_ROUTES } from '@/constants'
 import { Events, EventCreate, EventEditor, Login } from '@/pages'
 import { useAuthStore } from '@/store'
 
-import { DashboardLayout } from './DashboardLayout'
 
 export const router = createDashboardRouter({
   loginElement: <Login />,

@@ -1,9 +1,10 @@
-import { Button, Input, Label } from '@beat/ui'
 import type { SessionLocation } from '@beat/types'
+import { Button, Input, Label } from '@beat/ui'
 import { useState } from 'react'
 
 import { LocationSearchInput } from '@/components/LocationSearchInput/LocationSearchInput'
 import { VenueMapPicker } from '@/components/VenueMapPicker/VenueMapPicker'
+import { EVENT_EDITOR_COPY } from '@/constants'
 import type { LocationSearchResult } from '@/lib/geocode'
 
 export interface VenueLocationFieldsProps {
@@ -38,7 +39,7 @@ export function VenueLocationFields({
       latitude: result.latitude,
       longitude: result.longitude,
     })
-    if (result.city && !city.trim()) {
+    if (result.city) {
       onCityChange(result.city)
     }
     setMapVisible(true)
@@ -54,9 +55,9 @@ export function VenueLocationFields({
       <div className="space-y-4">
         <LocationSearchInput
           id="venue-name"
-          label="Location Name *"
+          label="Location *"
           value={venueName}
-          placeholder="Search for a venue or place"
+          placeholder={EVENT_EDITOR_COPY.LOCATION_SEARCH_PLACEHOLDER}
           onValueChange={onVenueNameChange}
           onSelect={handleLocationSelect}
         />

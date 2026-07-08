@@ -10,6 +10,17 @@
       rel="stylesheet"
     />
     <title>Beat Organiser</title>
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('organiser-theme')
+          var mode = stored ? (JSON.parse(stored).state || {}).mode || 'system' : 'system'
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          var resolved = mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode
+          document.documentElement.classList.toggle('dark', resolved === 'dark')
+        } catch (e) {}
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

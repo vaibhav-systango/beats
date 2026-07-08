@@ -1,4 +1,4 @@
-import type { CreateSessionInput } from '@beat/types'
+import type { CreateSessionInput, EventSessionMedias, UpdateSessionInput } from '@beat/types'
 
 type SessionFormFiles = {
   cover?: File
@@ -6,34 +6,56 @@ type SessionFormFiles = {
   videos?: File[]
 }
 
-export function buildSessionFormData(
-  input: CreateSessionInput,
-  files: SessionFormFiles = {}
-): FormData {
-  const formData = new FormData()
+type SessionFormInput = UpdateSessionInput & {
+  eventSessionMedias?: EventSessionMedias
+}
 
-  formData.append('categoryIds', JSON.stringify(input.categoryIds))
-  if (input.title) {
+function appendSessionFields(formData: FormData, input: SessionFormInput): void {
+  if (input.categoryIds !== undefined) {
+    formData.append('categoryIds', JSON.stringify(input.categoryIds))
+  }
+  if (input.title !== undefined) {
     formData.append('title', input.title)
   }
-  formData.append('startAt', String(input.startAt))
-  formData.append('endAt', String(input.endAt))
-  formData.append('location', JSON.stringify(input.location))
-  formData.append('eventAddress', JSON.stringify(input.eventAddress))
-  formData.append('capacity', String(input.capacity))
-  if (input.ageRestriction) {
+  if (input.startAt !== undefined) {
+    formData.append('startAt', String(input.startAt))
+  }
+  if (input.endAt !== undefined) {
+    formData.append('endAt', String(input.endAt))
+  }
+  if (input.location !== undefined) {
+    formData.append('location', JSON.stringify(input.location))
+  }
+  if (input.eventAddress !== undefined) {
+    formData.append('eventAddress', JSON.stringify(input.eventAddress))
+  }
+  if (input.capacity !== undefined) {
+    formData.append('capacity', String(input.capacity))
+  }
+  if (input.ageRestriction !== undefined) {
     formData.append('ageRestriction', input.ageRestriction)
   }
-  if (input.languages?.length) {
+  if (input.languages !== undefined) {
     formData.append('languages', JSON.stringify(input.languages))
   }
-  if (input.mode) {
+  if (input.mode !== undefined) {
     formData.append('mode', input.mode)
   }
-  formData.append('ticketSaleStartAt', String(input.ticketSaleStartAt))
-  formData.append('ticketSaleEndAt', String(input.ticketSaleEndAt))
-  formData.append('ticketTypes', JSON.stringify(input.ticketTypes))
+  if (input.ticketSaleStartAt !== undefined) {
+    formData.append('ticketSaleStartAt', String(input.ticketSaleStartAt))
+  }
+  if (input.ticketSaleEndAt !== undefined) {
+    formData.append('ticketSaleEndAt', String(input.ticketSaleEndAt))
+  }
+  if (input.ticketTypes !== undefined) {
+    formData.append('ticketTypes', JSON.stringify(input.ticketTypes))
+  }
+  if (input.eventSessionMedias !== undefined) {
+    formData.append('eventSessionMedias', JSON.stringify(input.eventSessionMedias))
+  }
+}
 
+function appendSessionFiles(formData: FormData, files: SessionFormFiles): void {
   if (files.cover) {
     formData.append('cover', files.cover)
   }
@@ -43,8 +65,32 @@ export function buildSessionFormData(
   files.videos?.forEach((file) => {
     formData.append('videos', file)
   })
+}
 
+export function buildSessionPatchFormData(
+  input: SessionFormInput = {},
+  files: SessionFormFiles = {}
+): FormData {
+  const formData = new FormData()
+  appendSessionFields(formData, input)
+  appendSessionFiles(formData, files)
   return formData
+}
+
+export function hasSessionPatchPayload(
+  input: SessionFormInput = {},
+  files: SessionFormFiles = {}
+): boolean {
+  const hasFields = Object.values(input).some((value) => value !== undefined)
+  const hasFiles = Boolean(files.cover || files.gallery?.length || files.videos?.length)
+  return hasFields || hasFiles
+}
+
+export function buildSessionFormData(
+  input: CreateSessionInput & { eventSessionMedias?: EventSessionMedias },
+  files: SessionFormFiles = {}
+): FormData {
+  return buildSessionPatchFormData(input, files)
 }
 
 export function datetimeLocalToEpoch(value: string): number {
@@ -62,17 +108,4 @@ export function epochToDatetimeLocal(epochMs: number | undefined): string {
   const offset = date.getTimezoneOffset()
   const local = new Date(date.getTime() - offset * 60_000)
   return local.toISOString().slice(0, 16)
-}
-
-export function createDefaultTicketTypes(startAt: number) {
-  const now = Date.now()
-  return [
-    {
-      name: 'General Admission',
-      price: 0,
-      quantity: 100,
-      saleStartAt: now,
-      saleEndAt: startAt || now + 86_400_000,
-    },
-  ]
 }

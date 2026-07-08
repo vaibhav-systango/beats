@@ -4,12 +4,12 @@ import {
   useUpdateEvent,
   useUpdateEventSession,
 } from '@beat/api-client'
-import { Button, Input, Label, Loader2 } from '@beat/ui'
-import type { Event, EventSession, LocationType, SessionMode, SessionLocation } from '@beat/types'
+import type { Event, EventSession, LocationType, SessionMode, SessionLocation, UpdateEventInput, UpdateSessionInput } from '@beat/types'
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 
-import { DateTimePicker, LocationTypeSelector, TimePicker, VenueLocationFields } from '@/components'
+import { BasicInfoStepView } from './BasicInfoStepView'
+
 import {
   DEFAULT_VENUE_COORDINATES,
   EVENT_EDITOR_COPY,
@@ -18,10 +18,17 @@ import {
 } from '@/constants'
 import {
   buildSessionFormData,
-  createDefaultTicketTypes,
+  buildSessionPatchFormData,
   datetimeLocalToEpoch,
   epochToDatetimeLocal,
+  hasSessionPatchPayload,
 } from '@/lib/sessionFormData'
+import {
+  validateCapacity,
+  validateDatetimeRange,
+  validateEventDescription,
+  validateEventName,
+} from '@/lib/validation'
 
 export interface BasicInfoStepProps {
   event: Event
@@ -72,9 +79,13 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
   const [endTime, setEndTime] = useState(datetimeLocalToTime(epochToDatetimeLocal(session?.endAt)))
   const [timezone, setTimezone] = useState<string>(TIMEZONE_OPTIONS[0].value)
   const [capacity, setCapacity] = useState(String(session?.capacity ?? 100))
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
-    session?.categoryIds ?? []
+  const [selectedCategoryId, setSelectedCategoryId] = useState(
+    session?.categoryIds?.[0] ?? ''
   )
+  const [titleError, setTitleError] = useState<string | null>(null)
+  const [descriptionError, setDescriptionError] = useState<string | null>(null)
+  const [capacityError, setCapacityError] = useState<string | null>(null)
+  const [categoryError, setCategoryError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const categories = categoriesResponse?.data ?? []
@@ -88,12 +99,9 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
     setDescription(event.description)
   }, [event.title, event.description])
 
-  const toggleCategory = (categoryId: string) => {
-    setSelectedCategoryIds((current) =>
-      current.includes(categoryId)
-        ? current.filter((id) => id !== categoryId)
-        : [...current, categoryId]
-    )
+  const selectCategory = (categoryId: string) => {
+    setSelectedCategoryId(categoryId)
+    setCategoryError(null)
   }
 
   const resetVenueLocation = () => {
@@ -103,7 +111,79 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
     })
   }
 
-  const resolveDateTimes = (): { startAt: number; endAt: number } | null => {
+  const buildDraftPatch = (): {
+    eventPatch: UpdateEventInput
+    sessionPatch: UpdateSessionInput
+  } => {
+    const eventPatch: UpdateEventInput = {}
+    const sessionPatch: UpdateSessionInput = {}
+
+    if (title.trim()) {
+      eventPatch.title = title.trim()
+      sessionPatch.title = title.trim()
+    }
+
+    if (description.trim()) {
+      eventPatch.description = description.trim()
+    }
+
+    if (selectedCategoryId) {
+      sessionPatch.categoryIds = [selectedCategoryId]
+    }
+
+    const mode = LOCATION_TYPE_TO_MODE[locationType]
+    if (mode) {
+      sessionPatch.mode = mode
+    }
+
+    if (isOnline) {
+      if (startTime) {
+        const today = new Date().toISOString().slice(0, 10)
+        sessionPatch.startAt = datetimeLocalToEpoch(timeToDatetimeLocal(startTime, today))
+      }
+      if (endTime) {
+        const today = new Date().toISOString().slice(0, 10)
+        sessionPatch.endAt = datetimeLocalToEpoch(timeToDatetimeLocal(endTime, today))
+      }
+    } else {
+      if (startAtLocal) {
+        sessionPatch.startAt = datetimeLocalToEpoch(startAtLocal)
+      }
+      if (endAtLocal) {
+        sessionPatch.endAt = datetimeLocalToEpoch(endAtLocal)
+      }
+    }
+
+    if (isVenue) {
+      sessionPatch.location = coordinates
+
+      if (venueName.trim() || address.trim() || city.trim()) {
+        sessionPatch.eventAddress = {
+          ...session?.eventAddress,
+          ...(venueName.trim() ? { venueName: venueName.trim() } : {}),
+          ...(address.trim()
+            ? { formattedAddress: address.trim(), addressLine1: address.trim() }
+            : {}),
+          ...(city.trim() ? { city: city.trim() } : {}),
+        }
+      }
+    } else if (isOnline && mode === 'ONLINE') {
+      sessionPatch.eventAddress = {
+        ...session?.eventAddress,
+        formattedAddress: 'Online',
+        city: 'Online',
+      }
+    }
+
+    const capacityValue = Number(capacity)
+    if (capacity.trim() && capacityValue > 0) {
+      sessionPatch.capacity = capacityValue
+    }
+
+    return { eventPatch, sessionPatch }
+  }
+
+  const resolveDateTimesForNext = (): { startAt: number; endAt: number } | null => {
     if (isOnline) {
       const today = new Date().toISOString().slice(0, 10)
       const start = datetimeLocalToEpoch(timeToDatetimeLocal(startTime, today))
@@ -119,50 +199,135 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
       setError('Start and end date/time are required.')
       return null
     }
+
     return {
       startAt: datetimeLocalToEpoch(startAtLocal),
       endAt: datetimeLocalToEpoch(endAtLocal),
     }
   }
 
-  const handleSave = async (advance = false) => {
+  const buildSessionInput = (startAt: number, endAt: number, mode: SessionMode) => ({
+    categoryIds: selectedCategoryId ? [selectedCategoryId] : [],
+    title: title.trim(),
+    startAt,
+    endAt,
+    location: coordinates,
+    eventAddress: {
+      venueName: isVenue ? venueName.trim() : undefined,
+      formattedAddress: isVenue ? address.trim() || venueName.trim() : 'Online',
+      addressLine1: isVenue ? address.trim() : undefined,
+      city: isVenue ? city.trim() : 'Online',
+      state: isVenue ? '' : '',
+      country: 'India',
+      postalCode: '',
+    },
+    capacity: Number(capacity) || 100,
+    mode,
+    ticketSaleStartAt: Date.now(),
+    ticketSaleEndAt: startAt,
+    ticketTypes: session?.ticketTypes ?? [],
+  })
+
+  const validateForNext = (): boolean => {
     setError(null)
 
-    if (!title.trim()) {
-      setError('Event name is required.')
-      return
+    const nextTitleError = validateEventName(title)
+    const nextDescriptionError = validateEventDescription(description)
+    const nextCapacityError = validateCapacity(capacity)
+    const nextCategoryError = selectedCategoryId
+      ? null
+      : 'Select a category for this session.'
+
+    setTitleError(nextTitleError)
+    setDescriptionError(nextDescriptionError)
+    setCapacityError(nextCapacityError)
+    setCategoryError(nextCategoryError)
+
+    if (nextTitleError || nextDescriptionError || nextCapacityError || nextCategoryError) {
+      setError(
+        nextTitleError ??
+          nextDescriptionError ??
+          nextCapacityError ??
+          nextCategoryError
+      )
+      return false
     }
-    if (!description.trim()) {
-      setError('Event description is required.')
-      return
-    }
+
     if (isVenue) {
       if (!venueName.trim()) {
         setError(EVENT_EDITOR_COPY.VENUE_NAME_REQUIRED)
-        return
+        return false
       }
       if (!city.trim()) {
         setError(EVENT_EDITOR_COPY.CITY_REQUIRED)
-        return
+        return false
       }
     }
-    if (selectedCategoryIds.length === 0) {
-      setError('Select at least one category.')
+
+    const mode = LOCATION_TYPE_TO_MODE[locationType] as SessionMode | null
+    if (!mode) {
+      setError('Selected location type is not supported yet.')
+      return false
+    }
+
+    if (!isOnline) {
+      if (!startAtLocal || !endAtLocal) {
+        setError('Start and end date/time are required.')
+        return false
+      }
+
+      const datetimeRangeError = validateDatetimeRange(startAtLocal, endAtLocal)
+      if (datetimeRangeError) {
+        setError(datetimeRangeError)
+        return false
+      }
+    }
+
+    if (!resolveDateTimesForNext()) {
+      return false
+    }
+
+    return true
+  }
+
+  const handleSaveDraft = async () => {
+    setError(null)
+
+    const { eventPatch, sessionPatch } = buildDraftPatch()
+
+    try {
+      if (Object.keys(eventPatch).length > 0) {
+        await updateEvent.mutateAsync({
+          id: event.id,
+          input: eventPatch,
+        })
+      }
+
+      if (session?.id && hasSessionPatchPayload(sessionPatch)) {
+        const formData = buildSessionPatchFormData(sessionPatch)
+        await updateSession.mutateAsync({
+          eventId: event.id,
+          sessionId: session.id,
+          formData,
+        })
+      }
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save.')
+    }
+  }
+
+  const handleSaveAndNext = async () => {
+    if (!validateForNext()) {
       return
     }
 
-    const dateTimes = resolveDateTimes()
+    const dateTimes = resolveDateTimesForNext()
     if (!dateTimes) {
       return
     }
 
     const { startAt, endAt } = dateTimes
-    const mode = LOCATION_TYPE_TO_MODE[locationType] as SessionMode | null
-
-    if (!mode) {
-      setError('Selected location type is not supported yet.')
-      return
-    }
+    const mode = LOCATION_TYPE_TO_MODE[locationType] as SessionMode
 
     try {
       await updateEvent.mutateAsync({
@@ -170,32 +335,7 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
         input: { title: title.trim(), description: description.trim() },
       })
 
-      const sessionInput = {
-        categoryIds: selectedCategoryIds,
-        title: title.trim(),
-        startAt,
-        endAt,
-        location: coordinates,
-        eventAddress: {
-          venueName: isVenue ? venueName.trim() : undefined,
-          formattedAddress: isVenue ? address.trim() || venueName.trim() : 'Online',
-          addressLine1: isVenue ? address.trim() : undefined,
-          city: isVenue ? city.trim() : 'Online',
-          state: isVenue ? '' : '',
-          country: 'India',
-          postalCode: '',
-        },
-        capacity: Number(capacity) || 100,
-        mode,
-        ticketSaleStartAt: Date.now(),
-        ticketSaleEndAt: startAt,
-        ticketTypes:
-          session?.ticketTypes?.length
-            ? session.ticketTypes
-            : createDefaultTicketTypes(startAt),
-      }
-
-      const formData = buildSessionFormData(sessionInput)
+      const formData = buildSessionFormData(buildSessionInput(startAt, endAt, mode))
 
       if (session?.id) {
         await updateSession.mutateAsync({
@@ -207,184 +347,105 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
         await createSession.mutateAsync({ eventId: event.id, formData })
       }
 
-      if (advance) {
-        onNext()
-      }
+      onNext()
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Failed to save.')
     }
   }
 
+  const handleTitleChange = (value: string) => {
+    setTitle(value)
+    if (titleError) {
+      setTitleError(validateEventName(value))
+    }
+  }
+
+  const handleTitleBlur = () => {
+    setTitleError(validateEventName(title))
+  }
+
+  const handleDescriptionChange = (value: string) => {
+    setDescription(value)
+    if (descriptionError) {
+      setDescriptionError(validateEventDescription(value))
+    }
+  }
+
+  const handleDescriptionBlur = () => {
+    setDescriptionError(validateEventDescription(description))
+  }
+
+  const handleCapacityChange = (value: string) => {
+    setCapacity(value)
+    if (capacityError) {
+      setCapacityError(validateCapacity(value))
+    }
+  }
+
+  const handleCapacityBlur = () => {
+    setCapacityError(validateCapacity(capacity))
+  }
+
   return (
-    <div className="space-y-10">
-      <div>
-        <h1 className="text-2xl font-bold">{EVENT_EDITOR_COPY.BASIC_INFO_TITLE}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {EVENT_EDITOR_COPY.BASIC_INFO_DESCRIPTION}
-        </p>
-      </div>
-
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="basic-title">Event Name *</Label>
-          <Input
-            id="basic-title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="basic-description">Event Description *</Label>
-          <textarea
-            id="basic-description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={6}
-            className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          />
-        </div>
-      </div>
-
-      <section className="space-y-4 border-t border-border pt-8">
-        <div>
-          <h2 className="text-lg font-semibold">{EVENT_EDITOR_COPY.LOCATION_TITLE}</h2>
-          <p className="text-sm text-muted-foreground">
-            {EVENT_EDITOR_COPY.LOCATION_SUBTITLE}
-          </p>
-        </div>
-        <p className="text-sm font-medium">{EVENT_EDITOR_COPY.LOCATION_QUESTION}</p>
-        <LocationTypeSelector value={locationType} onChange={setLocationType} />
-
-        {isVenue ? (
-          <VenueLocationFields
-            venueName={venueName}
-            address={address}
-            city={city}
-            coordinates={coordinates}
-            showMapInitially={Boolean(session?.location?.latitude && session?.location?.longitude)}
-            onVenueNameChange={setVenueName}
-            onAddressChange={setAddress}
-            onCityChange={setCity}
-            onCoordinatesChange={setCoordinates}
-            onResetLocation={resetVenueLocation}
-          />
-        ) : null}
-      </section>
-
-      <section className="space-y-4 border-t border-border pt-8">
-        <h2 className="text-lg font-semibold">{EVENT_EDITOR_COPY.DATE_TIME_TITLE}</h2>
-
-        {isOnline ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TimePicker
-              id="start-time"
-              label={EVENT_EDITOR_COPY.START_TIME_LABEL}
-              value={startTime}
-              onChange={setStartTime}
-            />
-            <TimePicker
-              id="end-time"
-              label={EVENT_EDITOR_COPY.END_TIME_LABEL}
-              value={endTime}
-              onChange={setEndTime}
-            />
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="timezone">{EVENT_EDITOR_COPY.TIMEZONE_LABEL}</Label>
-              <select
-                id="timezone"
-                value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {TIMEZONE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <DateTimePicker
-              id="start-at"
-              label={EVENT_EDITOR_COPY.START_DATETIME_LABEL}
-              value={startAtLocal}
-              onChange={setStartAtLocal}
-              disablePastDates
-            />
-            <DateTimePicker
-              id="end-at"
-              label={EVENT_EDITOR_COPY.END_DATETIME_LABEL}
-              value={endAtLocal}
-              onChange={setEndAtLocal}
-            />
-          </div>
-        )}
-      </section>
-
-      <section className="space-y-4 border-t border-border pt-8">
-        <div className="space-y-2">
-          <Label htmlFor="capacity">Capacity</Label>
-          <Input
-            id="capacity"
-            type="number"
-            min={1}
-            value={capacity}
-            onChange={(e) => setCapacity(e.target.value)}
-            className="max-w-xs"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Categories *</Label>
-          <div className="flex flex-wrap gap-2">
-            {categories.map((category) => {
-              const isSelected = selectedCategoryIds.includes(category.id)
-              return (
-                <button
-                  key={category.id}
-                  type="button"
-                  onClick={() => toggleCategory(category.id)}
-                  className={`rounded-full border px-3 py-1 text-sm ${
-                    isSelected
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border'
-                  }`}
-                >
-                  {category.name}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {error ? (
-        <div role="alert" className="text-sm text-red-500">
-          {error}
-        </div>
-      ) : null}
-
-      <div className="flex justify-end gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={isSaving}
-          onClick={() => void handleSave(false)}
-        >
-          {isSaving ? <Loader2 className="animate-spin" /> : EVENT_EDITOR_COPY.SAVE}
-        </Button>
-        <Button
-          type="button"
-          variant="primary"
-          disabled={isSaving}
-          onClick={() => void handleSave(true)}
-        >
-          {isSaving ? <Loader2 className="animate-spin" /> : EVENT_EDITOR_COPY.NEXT}
-        </Button>
-      </div>
-    </div>
+    <BasicInfoStepView
+      title={EVENT_EDITOR_COPY.BASIC_INFO_TITLE}
+      description={EVENT_EDITOR_COPY.BASIC_INFO_DESCRIPTION}
+      eventTitle={title}
+      eventDescription={description}
+      titleError={titleError}
+      descriptionError={descriptionError}
+      locationTitle={EVENT_EDITOR_COPY.LOCATION_TITLE}
+      locationSubtitle={EVENT_EDITOR_COPY.LOCATION_SUBTITLE}
+      locationQuestion={EVENT_EDITOR_COPY.LOCATION_QUESTION}
+      locationType={locationType}
+      onLocationTypeChange={setLocationType}
+      isVenue={isVenue}
+      isOnline={isOnline}
+      venueName={venueName}
+      address={address}
+      city={city}
+      coordinates={coordinates}
+      showMapInitially={Boolean(session?.location?.latitude && session?.location?.longitude)}
+      onVenueNameChange={setVenueName}
+      onAddressChange={setAddress}
+      onCityChange={setCity}
+      onCoordinatesChange={setCoordinates}
+      onResetLocation={resetVenueLocation}
+      dateTimeTitle={EVENT_EDITOR_COPY.DATE_TIME_TITLE}
+      startTimeLabel={EVENT_EDITOR_COPY.START_TIME_LABEL}
+      endTimeLabel={EVENT_EDITOR_COPY.END_TIME_LABEL}
+      timezoneLabel={EVENT_EDITOR_COPY.TIMEZONE_LABEL}
+      startDatetimeLabel={EVENT_EDITOR_COPY.START_DATETIME_LABEL}
+      endDatetimeLabel={EVENT_EDITOR_COPY.END_DATETIME_LABEL}
+      startTime={startTime}
+      endTime={endTime}
+      timezone={timezone}
+      timezoneOptions={TIMEZONE_OPTIONS}
+      startAtLocal={startAtLocal}
+      endAtLocal={endAtLocal}
+      onStartTimeChange={setStartTime}
+      onEndTimeChange={setEndTime}
+      onTimezoneChange={setTimezone}
+      onStartAtLocalChange={setStartAtLocal}
+      onEndAtLocalChange={setEndAtLocal}
+      capacity={capacity}
+      capacityError={capacityError}
+      onCapacityChange={handleCapacityChange}
+      onCapacityBlur={handleCapacityBlur}
+      categories={categories}
+      selectedCategoryId={selectedCategoryId}
+      categoryError={categoryError}
+      onCategorySelect={selectCategory}
+      onTitleChange={handleTitleChange}
+      onTitleBlur={handleTitleBlur}
+      onDescriptionChange={handleDescriptionChange}
+      onDescriptionBlur={handleDescriptionBlur}
+      error={error}
+      isSaving={isSaving}
+      saveLabel={EVENT_EDITOR_COPY.SAVE}
+      nextLabel={EVENT_EDITOR_COPY.NEXT}
+      onSaveDraft={() => void handleSaveDraft()}
+      onSaveAndNext={() => void handleSaveAndNext()}
+    />
   )
 }
