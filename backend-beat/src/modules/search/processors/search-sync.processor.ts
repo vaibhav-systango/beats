@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { SearchService } from '../services/search.service';
 import { Event, EventStatus } from '../../../database/entities/event.entity';
 import { EventSession, SessionStatus } from '../../../database/entities/event-session.entity';
@@ -76,20 +76,32 @@ export class SearchSyncProcessor extends WorkerHost {
       return;
     }
 
+    // Batch-load all SessionCategory rows for active sessions in one query
+    const sessionIds = activeSessions.map((s) => s.id);
+    const allSessionCategories = await this.dataSource.getRepository(SessionCategory).find({
+      where: { sessionId: In(sessionIds) },
+      relations: { category: true },
+    });
+
+    // Build a Map<sessionId, categoryName[]> for O(1) lookup per session
+    const categoriesBySession = new Map<string, string[]>();
+    for (const sc of allSessionCategories) {
+      if (!sc.category?.name) continue;
+      const existing = categoriesBySession.get(sc.sessionId);
+      if (existing) {
+        existing.push(sc.category.name);
+      } else {
+        categoriesBySession.set(sc.sessionId, [sc.category.name]);
+      }
+    }
+
     const docs: any[] = [];
     for (const session of activeSessions) {
-      // Fetch categories
-      const sessionCategories = await this.dataSource.getRepository(SessionCategory).find({
-        where: { sessionId: session.id },
-        relations: { category: true },
-      });
-      const categories = sessionCategories
-        .map((sc) => sc.category?.name)
-        .filter(Boolean);
+      const categories = categoriesBySession.get(session.id) ?? [];
 
       // Map location geo_point
       let location: { lat: number; lon: number } | null = null;
-      if (session.location && session.location.coordinates) {
+      if (session.location && session.location.coordinates && session.location.coordinates.length >= 2) {
         location = {
           lat: session.location.coordinates[1],
           lon: session.location.coordinates[0],

@@ -13,7 +13,7 @@ export class UlidValidationPipe implements PipeTransform<string> {
     // Allow 25-26 characters containing valid Crockford's Base32 alphabet.
     const isLenientUlid = /^[0-9A-HJKMNP-TV-Z]{25,26}$/i.test(trimmed);
 
-    if (!isLenientUlid && !isValid(value)) {
+    if (!isLenientUlid && !isValid(trimmed)) {
       throw new BadRequestException('Invalid ULID format');
     }
 

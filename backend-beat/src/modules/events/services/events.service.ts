@@ -59,7 +59,7 @@ export class EventsService {
    */
   async invalidateEventCache(eventId?: string): Promise<void> {
     this.logger.log(`[CACHE] Invalidating cache for eventId: ${eventId || 'all'}`);
-    await this.cacheService.del('public:discovery');
+    await this.cacheService.deleteByPrefix('public:discovery:');
     if (eventId) {
       await this.cacheService.del(`event:details:${eventId}`);
     }
@@ -840,29 +840,7 @@ export class EventsService {
       const total = await this.countLivePublishedEvents();
       const events = await this.eventRepository.findLivePublishedEvents(limit, offset);
 
-      const output: Event[] = [];
-
-      for (const event of events) {
-        delete (event as any).statusLog;
-        const sessions = await this.eventSessionRepository.findActiveSessionsByEventId(event.id);
-
-        if (sessions.length > 0) {
-          for (const session of sessions) {
-            session['ticketTypes'] = await this.sessionTicketTypeRepository.findActiveTicketsBySessionId(session.id);
-
-            const scs = await this.dataSource
-               .getRepository(SessionCategory)
-               .find({
-                 where: { sessionId: session.id },
-                 relations: { category: true },
-               });
-            session['categories'] = scs.map((sc) => sc.category).filter(Boolean);
-          }
-
-          event['sessions'] = sessions;
-          output.push(event);
-        }
-      }
+      const output = await this.enrichEventsWithActiveSessions(events);
 
       const resultShape = {
         data: output,
@@ -913,29 +891,7 @@ export class EventsService {
       const total = await this.countLivePublishedEvents();
       const events = await this.eventRepository.findLivePublishedEvents(limit, offset);
 
-      const output: Event[] = [];
-
-      for (const event of events) {
-        delete (event as any).statusLog;
-        const sessions = await this.eventSessionRepository.findActiveSessionsByEventId(event.id);
-
-        if (sessions.length > 0) {
-          for (const session of sessions) {
-            session['ticketTypes'] = await this.sessionTicketTypeRepository.findActiveTicketsBySessionId(session.id);
-
-            const scs = await this.dataSource
-               .getRepository(SessionCategory)
-               .find({
-                 where: { sessionId: session.id },
-                 relations: { category: true },
-               });
-            session['categories'] = scs.map((sc) => sc.category).filter(Boolean);
-          }
-
-          event['sessions'] = sessions;
-          output.push(event);
-        }
-      }
+      const output = await this.enrichEventsWithActiveSessions(events);
 
       return {
         data: output,
@@ -1051,6 +1007,36 @@ export class EventsService {
         offset,
       },
     };
+  }
+
+  /**
+   * Enriches a list of events by attaching their active sessions,
+   * ticket types, and categories. Events with no active sessions are excluded.
+   */
+  private async enrichEventsWithActiveSessions(events: Event[]): Promise<Event[]> {
+    const output: Event[] = [];
+    for (const event of events) {
+      delete (event as any).statusLog;
+      const sessions = await this.eventSessionRepository.findActiveSessionsByEventId(event.id);
+
+      if (sessions.length > 0) {
+        for (const session of sessions) {
+          session['ticketTypes'] = await this.sessionTicketTypeRepository.findActiveTicketsBySessionId(session.id);
+
+          const scs = await this.dataSource
+            .getRepository(SessionCategory)
+            .find({
+              where: { sessionId: session.id },
+              relations: { category: true },
+            });
+          session['categories'] = scs.map((sc) => sc.category).filter(Boolean);
+        }
+
+        event['sessions'] = sessions;
+        output.push(event);
+      }
+    }
+    return output;
   }
 
   async countLivePublishedEvents(): Promise<number> {

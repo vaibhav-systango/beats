@@ -46,6 +46,8 @@ import { DeleteEventSwagger } from './decorators/swagger/delete-event.decorator'
 import { GetOrganizerEventsSwagger } from './decorators/swagger/get-organizer-events.decorator';
 import { GetPublicDiscoverySwagger } from './decorators/swagger/get-public-discovery.decorator';
 import { GetEventDetailsSwagger } from './decorators/swagger/get-event-details.decorator';
+import { GetSuggestionsSwagger } from './decorators/swagger/get-suggestions.decorator';
+import { GetTrendingSearchesSwagger } from './decorators/swagger/get-trending-searches.decorator';
 import {
   CreateSessionSwagger,
   UpdateSessionSwagger,
@@ -373,8 +375,10 @@ export class EventsController {
     @Query('radius') radius?: string,
   ) {
     try {
-      const limitVal = limit ? parseInt(limit, 10) : 10;
-      const offsetVal = offset ? parseInt(offset, 10) : 0;
+      const parsedLimit = limit ? parseInt(limit, 10) : 10;
+      const parsedOffset = offset ? parseInt(offset, 10) : 0;
+      const limitVal = !isNaN(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 100) : 10;
+      const offsetVal = !isNaN(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
       const dateFromVal = dateFrom ? parseInt(dateFrom, 10) : undefined;
       const dateToVal = dateTo ? parseInt(dateTo, 10) : undefined;
       const latVal = lat ? parseFloat(lat) : undefined;
@@ -408,11 +412,16 @@ export class EventsController {
    * Retrieves autocomplete search suggestions.
    */
   @Get('suggestions')
+  @Throttle({ default: { limit: EventConstants.DISCOVERY_LIMIT, ttl: EventConstants.DISCOVERY_TTL_MS } })
+  @GetSuggestionsSwagger()
   async getSuggestions(@Query('q') query?: string) {
     try {
       if (!query) return [];
       return await this.eventsService.getSuggestions(query);
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       this.logger.error('Error in autocomplete suggestions endpoint', error);
       throw new InternalServerErrorException({
         message: 'Unexpected error occurred while fetching suggestions',
@@ -424,10 +433,15 @@ export class EventsController {
    * Retrieves trending search terms from Redis.
    */
   @Get('trending-searches')
+  @Throttle({ default: { limit: EventConstants.DISCOVERY_LIMIT, ttl: EventConstants.DISCOVERY_TTL_MS } })
+  @GetTrendingSearchesSwagger()
   async getTrendingSearches() {
     try {
       return await this.eventsService.getTrendingSearches();
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       this.logger.error('Error in trending searches endpoint', error);
       throw new InternalServerErrorException({
         message: 'Unexpected error occurred while fetching trending searches',

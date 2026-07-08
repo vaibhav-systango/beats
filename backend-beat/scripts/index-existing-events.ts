@@ -99,6 +99,7 @@ async function run() {
     }
   } catch (error) {
     console.error('Error during bulk indexing execution', error);
+    process.exitCode = 1;
   } finally {
     await app.close();
     console.log('NestJS app context closed.');
