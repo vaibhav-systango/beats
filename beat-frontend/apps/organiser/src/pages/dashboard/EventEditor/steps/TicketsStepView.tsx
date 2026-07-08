@@ -19,7 +19,6 @@ export interface TicketsStepViewProps {
   error?: string | null
   isSaving: boolean
   backLabel: string
-  saveLabel: string
   nextLabel: string
   onShowForm: () => void
   onRemoveTicket: (index: number) => void
@@ -30,7 +29,6 @@ export interface TicketsStepViewProps {
   onSaleStartChange: (value: string) => void
   onSaleEndChange: (value: string) => void
   onBack: () => void
-  onSaveDraft: () => void
   onSaveAndNext: () => void
 }
 
@@ -49,7 +47,6 @@ export function TicketsStepView({
   error,
   isSaving,
   backLabel,
-  saveLabel,
   nextLabel,
   onShowForm,
   onRemoveTicket,
@@ -60,7 +57,6 @@ export function TicketsStepView({
   onSaleStartChange,
   onSaleEndChange,
   onBack,
-  onSaveDraft,
   onSaveAndNext,
 }: TicketsStepViewProps) {
   return (
@@ -173,14 +169,9 @@ export function TicketsStepView({
         <Button type="button" variant="outline" onClick={onBack}>
           {backLabel}
         </Button>
-        <div className="flex gap-3">
-          <Button type="button" variant="outline" disabled={isSaving} onClick={onSaveDraft}>
-            {isSaving ? <Loader2 className="animate-spin" /> : saveLabel}
-          </Button>
-          <Button type="button" variant="primary" disabled={isSaving} onClick={onSaveAndNext}>
-            {isSaving ? <Loader2 className="animate-spin" /> : nextLabel}
-          </Button>
-        </div>
+        <Button type="button" variant="primary" disabled={isSaving} onClick={onSaveAndNext}>
+          {isSaving ? <Loader2 className="animate-spin" /> : nextLabel}
+        </Button>
       </div>
     </div>
   )

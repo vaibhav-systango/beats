@@ -18,11 +18,9 @@ export interface MediaStepViewProps {
   error?: string | null
   isSaving: boolean
   backLabel: string
-  saveLabel: string
   nextLabel: string
   onBack: () => void
-  onSave: () => void
-  onNext: () => void
+  onSaveAndNext: () => void
   footerStart?: ReactNode
 }
 
@@ -35,11 +33,9 @@ export function MediaStepView({
   error,
   isSaving,
   backLabel,
-  saveLabel,
   nextLabel,
   onBack,
-  onSave,
-  onNext,
+  onSaveAndNext,
 }: MediaStepViewProps) {
   return (
     <div className="w-full min-w-0 space-y-8 overflow-x-hidden">
@@ -64,14 +60,9 @@ export function MediaStepView({
         <Button type="button" variant="outline" onClick={onBack}>
           {backLabel}
         </Button>
-        <div className="flex gap-3">
-          <Button type="button" variant="outline" disabled={isSaving} onClick={onSave}>
-            {isSaving ? <Loader2 className="animate-spin" /> : saveLabel}
-          </Button>
-          <Button type="button" variant="primary" disabled={isSaving} onClick={onNext}>
-            {isSaving ? <Loader2 className="animate-spin" /> : nextLabel}
-          </Button>
-        </div>
+        <Button type="button" variant="primary" disabled={isSaving} onClick={onSaveAndNext}>
+          {isSaving ? <Loader2 className="animate-spin" /> : nextLabel}
+        </Button>
       </div>
     </div>
   )

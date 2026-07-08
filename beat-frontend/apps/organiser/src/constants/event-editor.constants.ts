@@ -86,7 +86,6 @@ export const EVENT_EDITOR_COPY = {
   DRAFT: 'Draft',
   NEXT: 'Save & Next',
   BACK: 'Back',
-  SAVE: 'Save',
   SAVING: 'Saving…',
   BASIC_INFO_TITLE: 'Basic info',
   BASIC_INFO_DESCRIPTION:

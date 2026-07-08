@@ -8,7 +8,6 @@ import { EVENT_EDITOR_COPY } from '@/constants'
 import { GALLERY_MAX_COUNT } from '@/constants/event-editor.constants'
 import { useObjectUrl, useObjectUrls } from '@/lib/hooks/useObjectUrl'
 import { buildSessionPatchFormData, hasSessionPatchPayload } from '@/lib/sessionFormData'
-import { validateGalleryCount, validateImageFile, validateYouTubeUrl } from '@/lib/validation'
 import { buildYouTubeVideoMetadata, getYouTubeEmbedUrl, getYouTubeUrlFromSession } from '@/lib/youtubeMedia'
 
 
@@ -72,9 +71,6 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
     () => session?.eventSessionMedias?.gallery ?? []
   )
   const [videoUrl, setVideoUrl] = useState(() => getYouTubeUrlFromSession(session))
-  const [bannerError, setBannerError] = useState<string | null>(null)
-  const [galleryError, setGalleryError] = useState<string | null>(null)
-  const [youtubeError, setYoutubeError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const coverPreviewUrl = useObjectUrl(coverFile)
@@ -120,14 +116,6 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
     if (!file) {
       return
     }
-
-    const validationError = validateImageFile(file)
-    if (validationError) {
-      setBannerError(validationError)
-      return
-    }
-
-    setBannerError(null)
     setCoverFile(file)
   }
 
@@ -135,26 +123,7 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
     if (!files?.length) {
       return
     }
-
-    const nextFiles: File[] = []
-    for (const file of Array.from(files)) {
-      const validationError = validateImageFile(file)
-      if (validationError) {
-        setGalleryError(validationError)
-        return
-      }
-      nextFiles.push(file)
-    }
-
-    const combinedCount = existingGallery.length + galleryFiles.length + nextFiles.length
-    const countError = validateGalleryCount(combinedCount)
-    if (countError) {
-      setGalleryError(countError)
-      return
-    }
-
-    setGalleryError(null)
-    setGalleryFiles((current) => [...current, ...nextFiles])
+    setGalleryFiles((current) => [...current, ...Array.from(files)])
   }
 
   const handleRemoveGalleryImage = (id: string) => {
@@ -170,83 +139,19 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
     } else {
       setGalleryFiles((current) => current.filter((file) => file !== item.file))
     }
-
-    setGalleryError(null)
-  }
-
-  const handleYoutubeChange = (nextValue: string) => {
-    setVideoUrl(nextValue)
-    if (!nextValue.trim()) {
-      setYoutubeError(null)
-      return
-    }
-    setYoutubeError(validateYouTubeUrl(nextValue))
-  }
-
-  const handleYoutubeBlur = () => {
-    setYoutubeError(videoUrl.trim() ? validateYouTubeUrl(videoUrl) : null)
-  }
-
-  const handleSaveDraft = async () => {
-    setError(null)
-
-    if (!session?.id) {
-      setError('Complete Basic Info before uploading media.')
-      return
-    }
-
-    const nextYoutubeError = videoUrl.trim() ? validateYouTubeUrl(videoUrl) : null
-    if (nextYoutubeError) {
-      setYoutubeError(nextYoutubeError)
-      setError(nextYoutubeError)
-      return
-    }
-
-    const { files, sessionPatch } = buildSavePayload()
-
-    if (!hasSessionPatchPayload(sessionPatch, files)) {
-      return
-    }
-
-    try {
-      const formData = buildSessionPatchFormData(sessionPatch, files)
-
-      await updateSession.mutateAsync({
-        eventId,
-        sessionId: session.id,
-        formData,
-      })
-
-      setGalleryFiles([])
-      setCoverFile(null)
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Failed to save media.')
-    }
   }
 
   const handleSaveAndNext = async () => {
     setError(null)
 
     if (!session?.id) {
-      setError('Complete Basic Info before uploading media.')
+      setError('No session found for this event.')
       return
     }
 
-    if (!coverFile && !session.eventSessionMedias?.cover) {
-      setError('Upload an event banner before continuing.')
-      return
-    }
-
-    const nextYoutubeError = videoUrl.trim() ? validateYouTubeUrl(videoUrl) : null
-    if (nextYoutubeError) {
-      setYoutubeError(nextYoutubeError)
-      setError(nextYoutubeError)
-      return
-    }
+    const { files, sessionPatch } = buildSavePayload()
 
     try {
-      const { files, sessionPatch } = buildSavePayload()
-
       if (hasSessionPatchPayload(sessionPatch, files)) {
         const formData = buildSessionPatchFormData(sessionPatch, files)
         await updateSession.mutateAsync({
@@ -254,6 +159,9 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
           sessionId: session.id,
           formData,
         })
+
+        setGalleryFiles([])
+        setCoverFile(null)
       }
 
       onNext()
@@ -269,11 +177,9 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
       error={error}
       isSaving={updateSession.isPending}
       backLabel={EVENT_EDITOR_COPY.BACK}
-      saveLabel={EVENT_EDITOR_COPY.SAVE}
       nextLabel={EVENT_EDITOR_COPY.NEXT}
       onBack={onBack}
-      onSave={() => void handleSaveDraft()}
-      onNext={() => void handleSaveAndNext()}
+      onSaveAndNext={() => void handleSaveAndNext()}
       banner={{
         inputId: bannerInputId,
         inputRef: bannerInputRef,
@@ -282,7 +188,6 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
         displayUrl: bannerDisplayUrl,
         emptyStateLabel: 'Choose banner image',
         updateLabel: 'Update banner',
-        error: bannerError,
         onOpenPicker: () => bannerInputRef.current?.click(),
         onFileChange: handleBannerFileChange,
       }}
@@ -291,10 +196,9 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
         helperText: 'Share a YouTube link to showcase your event in action.',
         placeholder: 'ex. https://youtube.com/watch?v=...',
         value: videoUrl,
-        error: youtubeError,
         embedUrl: youtubeEmbedUrl,
-        onChange: handleYoutubeChange,
-        onBlur: handleYoutubeBlur,
+        onChange: setVideoUrl,
+        onBlur: () => {},
       }}
       gallery={{
         inputId: galleryInputId,
@@ -304,7 +208,6 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
         uploadLabel: EVENT_EDITOR_COPY.GALLERY_UPLOAD_IMAGE,
         images: galleryImages.map(({ id, url }) => ({ id, url })),
         canAddMore: galleryImages.length < GALLERY_MAX_COUNT,
-        error: galleryError,
         onOpenPicker: () => galleryInputRef.current?.click(),
         onFilesSelected: handleGalleryFilesSelected,
         onRemoveImage: handleRemoveGalleryImage,

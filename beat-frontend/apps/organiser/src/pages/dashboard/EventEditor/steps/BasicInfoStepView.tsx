@@ -55,9 +55,7 @@ export interface BasicInfoStepViewProps {
   onDescriptionBlur: () => void
   error?: string | null
   isSaving: boolean
-  saveLabel: string
   nextLabel: string
-  onSaveDraft: () => void
   onSaveAndNext: () => void
 }
 
@@ -112,9 +110,7 @@ export function BasicInfoStepView({
   onDescriptionBlur,
   error,
   isSaving,
-  saveLabel,
   nextLabel,
-  onSaveDraft,
   onSaveAndNext,
 }: BasicInfoStepViewProps) {
   return (
@@ -265,10 +261,7 @@ export function BasicInfoStepView({
         </div>
       ) : null}
 
-      <div className="flex justify-end gap-3">
-        <Button type="button" variant="outline" disabled={isSaving} onClick={onSaveDraft}>
-          {isSaving ? <Loader2 className="animate-spin" /> : saveLabel}
-        </Button>
+      <div className="flex justify-end">
         <Button type="button" variant="primary" disabled={isSaving} onClick={onSaveAndNext}>
           {isSaving ? <Loader2 className="animate-spin" /> : nextLabel}
         </Button>

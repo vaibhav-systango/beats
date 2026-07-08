@@ -1,9 +1,5 @@
-import {
-  useCreateEventSession,
-  useUpdateEvent,
-  useUpdateEventSession,
-} from '@beat/api-client'
-import type { Event, EventSession, LocationType, SessionMode, SessionLocation, UpdateEventInput, UpdateSessionInput } from '@beat/types'
+import { useUpdateEventSession } from '@beat/api-client'
+import type { Event, EventSession, LocationType, SessionLocation, UpdateSessionInput } from '@beat/types'
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 
@@ -16,18 +12,11 @@ import {
   TIMEZONE_OPTIONS,
 } from '@/constants'
 import {
-  buildSessionFormData,
   buildSessionPatchFormData,
   datetimeLocalToEpoch,
   epochToDatetimeLocal,
   hasSessionPatchPayload,
 } from '@/lib/sessionFormData'
-import {
-  validateCapacity,
-  validateDatetimeRange,
-  validateEventDescription,
-  validateEventName,
-} from '@/lib/validation'
 
 export interface BasicInfoStepProps {
   event: Event
@@ -47,14 +36,14 @@ function datetimeLocalToTime(value: string): string {
   return value.includes('T') ? value.split('T')[1]?.slice(0, 5) ?? '00:00' : value
 }
 
+const noop = () => {}
+
 export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
   const location = useLocation()
   const initialLocationType =
     (location.state as { locationType?: LocationType } | null)?.locationType ??
     'VENUE'
 
-  const updateEvent = useUpdateEvent()
-  const createSession = useCreateEventSession()
   const updateSession = useUpdateEventSession()
 
   const [title, setTitle] = useState(event.title)
@@ -77,13 +66,8 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
   const [endTime, setEndTime] = useState(datetimeLocalToTime(epochToDatetimeLocal(session?.endAt)))
   const [timezone, setTimezone] = useState<string>(TIMEZONE_OPTIONS[0].value)
   const [capacity, setCapacity] = useState(String(session?.capacity ?? 100))
-  const [titleError, setTitleError] = useState<string | null>(null)
-  const [descriptionError, setDescriptionError] = useState<string | null>(null)
-  const [capacityError, setCapacityError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const isSaving =
-    updateEvent.isPending || createSession.isPending || updateSession.isPending
   const isVenue = locationType === 'VENUE'
   const isOnline = locationType === 'ONLINE'
 
@@ -99,20 +83,11 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
     })
   }
 
-  const buildDraftPatch = (): {
-    eventPatch: UpdateEventInput
-    sessionPatch: UpdateSessionInput
-  } => {
-    const eventPatch: UpdateEventInput = {}
+  const buildSessionPatch = (): UpdateSessionInput => {
     const sessionPatch: UpdateSessionInput = {}
 
     if (title.trim()) {
-      eventPatch.title = title.trim()
       sessionPatch.title = title.trim()
-    }
-
-    if (description.trim()) {
-      eventPatch.description = description.trim()
     }
 
     const mode = LOCATION_TYPE_TO_MODE[locationType]
@@ -121,12 +96,11 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
     }
 
     if (isOnline) {
+      const today = new Date().toISOString().slice(0, 10)
       if (startTime) {
-        const today = new Date().toISOString().slice(0, 10)
         sessionPatch.startAt = datetimeLocalToEpoch(timeToDatetimeLocal(startTime, today))
       }
       if (endTime) {
-        const today = new Date().toISOString().slice(0, 10)
         sessionPatch.endAt = datetimeLocalToEpoch(timeToDatetimeLocal(endTime, today))
       }
     } else {
@@ -164,162 +138,27 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
       sessionPatch.capacity = capacityValue
     }
 
-    return { eventPatch, sessionPatch }
+    return sessionPatch
   }
 
-  const resolveDateTimesForNext = (): { startAt: number; endAt: number } | null => {
-    if (isOnline) {
-      const today = new Date().toISOString().slice(0, 10)
-      const start = datetimeLocalToEpoch(timeToDatetimeLocal(startTime, today))
-      const end = datetimeLocalToEpoch(timeToDatetimeLocal(endTime, today))
-      if (!startTime) {
-        setError('Start time is required.')
-        return null
-      }
-      return { startAt: start, endAt: end || start + 3_600_000 }
-    }
-
-    if (!startAtLocal || !endAtLocal) {
-      setError('Start and end date/time are required.')
-      return null
-    }
-
-    return {
-      startAt: datetimeLocalToEpoch(startAtLocal),
-      endAt: datetimeLocalToEpoch(endAtLocal),
-    }
-  }
-
-  const buildSessionInput = (startAt: number, endAt: number, mode: SessionMode) => ({
-    categoryIds: session?.categoryIds ?? [],
-    title: title.trim(),
-    startAt,
-    endAt,
-    location: coordinates,
-    eventAddress: {
-      venueName: isVenue ? venueName.trim() : undefined,
-      formattedAddress: isVenue ? address.trim() || venueName.trim() : 'Online',
-      addressLine1: isVenue ? address.trim() : undefined,
-      city: isVenue ? city.trim() : 'Online',
-      state: isVenue ? '' : '',
-      country: 'India',
-      postalCode: '',
-    },
-    capacity: Number(capacity) || 100,
-    mode,
-    ticketSaleStartAt: Date.now(),
-    ticketSaleEndAt: startAt,
-    ticketTypes: session?.ticketTypes ?? [],
-  })
-
-  const validateForNext = (): boolean => {
+  const handleSaveAndNext = async () => {
     setError(null)
 
-    const nextTitleError = validateEventName(title)
-    const nextDescriptionError = validateEventDescription(description)
-    const nextCapacityError = validateCapacity(capacity)
-
-    setTitleError(nextTitleError)
-    setDescriptionError(nextDescriptionError)
-    setCapacityError(nextCapacityError)
-
-    if (nextTitleError || nextDescriptionError || nextCapacityError) {
-      setError(nextTitleError ?? nextDescriptionError ?? nextCapacityError)
-      return false
+    if (!session?.id) {
+      setError('No session found for this event.')
+      return
     }
 
-    if (isVenue) {
-      if (!venueName.trim()) {
-        setError(EVENT_EDITOR_COPY.VENUE_NAME_REQUIRED)
-        return false
-      }
-      if (!city.trim()) {
-        setError(EVENT_EDITOR_COPY.CITY_REQUIRED)
-        return false
-      }
-    }
-
-    const mode = LOCATION_TYPE_TO_MODE[locationType] as SessionMode | null
-    if (!mode) {
-      setError('Selected location type is not supported yet.')
-      return false
-    }
-
-    if (!isOnline) {
-      if (!startAtLocal || !endAtLocal) {
-        setError('Start and end date/time are required.')
-        return false
-      }
-
-      const datetimeRangeError = validateDatetimeRange(startAtLocal, endAtLocal)
-      if (datetimeRangeError) {
-        setError(datetimeRangeError)
-        return false
-      }
-    }
-
-    if (!resolveDateTimesForNext()) {
-      return false
-    }
-
-    return true
-  }
-
-  const handleSaveDraft = async () => {
-    setError(null)
-
-    const { eventPatch, sessionPatch } = buildDraftPatch()
+    const sessionPatch = buildSessionPatch()
 
     try {
-      if (Object.keys(eventPatch).length > 0) {
-        await updateEvent.mutateAsync({
-          id: event.id,
-          input: eventPatch,
-        })
-      }
-
-      if (session?.id && hasSessionPatchPayload(sessionPatch)) {
+      if (hasSessionPatchPayload(sessionPatch)) {
         const formData = buildSessionPatchFormData(sessionPatch)
         await updateSession.mutateAsync({
           eventId: event.id,
           sessionId: session.id,
           formData,
         })
-      }
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Failed to save.')
-    }
-  }
-
-  const handleSaveAndNext = async () => {
-    if (!validateForNext()) {
-      return
-    }
-
-    const dateTimes = resolveDateTimesForNext()
-    if (!dateTimes) {
-      return
-    }
-
-    const { startAt, endAt } = dateTimes
-    const mode = LOCATION_TYPE_TO_MODE[locationType] as SessionMode
-
-    try {
-      await updateEvent.mutateAsync({
-        id: event.id,
-        input: { title: title.trim(), description: description.trim() },
-      })
-
-      const formData = buildSessionFormData(buildSessionInput(startAt, endAt, mode))
-
-      if (session?.id) {
-        await updateSession.mutateAsync({
-          eventId: event.id,
-          sessionId: session.id,
-          formData,
-        })
-      } else {
-        await createSession.mutateAsync({ eventId: event.id, formData })
       }
 
       onNext()
@@ -328,47 +167,12 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
     }
   }
 
-  const handleTitleChange = (value: string) => {
-    setTitle(value)
-    if (titleError) {
-      setTitleError(validateEventName(value))
-    }
-  }
-
-  const handleTitleBlur = () => {
-    setTitleError(validateEventName(title))
-  }
-
-  const handleDescriptionChange = (value: string) => {
-    setDescription(value)
-    if (descriptionError) {
-      setDescriptionError(validateEventDescription(value))
-    }
-  }
-
-  const handleDescriptionBlur = () => {
-    setDescriptionError(validateEventDescription(description))
-  }
-
-  const handleCapacityChange = (value: string) => {
-    setCapacity(value)
-    if (capacityError) {
-      setCapacityError(validateCapacity(value))
-    }
-  }
-
-  const handleCapacityBlur = () => {
-    setCapacityError(validateCapacity(capacity))
-  }
-
   return (
     <BasicInfoStepView
       title={EVENT_EDITOR_COPY.BASIC_INFO_TITLE}
       description={EVENT_EDITOR_COPY.BASIC_INFO_DESCRIPTION}
       eventTitle={title}
       eventDescription={description}
-      titleError={titleError}
-      descriptionError={descriptionError}
       locationTitle={EVENT_EDITOR_COPY.LOCATION_TITLE}
       locationSubtitle={EVENT_EDITOR_COPY.LOCATION_SUBTITLE}
       locationQuestion={EVENT_EDITOR_COPY.LOCATION_QUESTION}
@@ -404,18 +208,15 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
       onStartAtLocalChange={setStartAtLocal}
       onEndAtLocalChange={setEndAtLocal}
       capacity={capacity}
-      capacityError={capacityError}
-      onCapacityChange={handleCapacityChange}
-      onCapacityBlur={handleCapacityBlur}
-      onTitleChange={handleTitleChange}
-      onTitleBlur={handleTitleBlur}
-      onDescriptionChange={handleDescriptionChange}
-      onDescriptionBlur={handleDescriptionBlur}
+      onCapacityChange={setCapacity}
+      onCapacityBlur={noop}
+      onTitleChange={setTitle}
+      onTitleBlur={noop}
+      onDescriptionChange={setDescription}
+      onDescriptionBlur={noop}
       error={error}
-      isSaving={isSaving}
-      saveLabel={EVENT_EDITOR_COPY.SAVE}
+      isSaving={updateSession.isPending}
       nextLabel={EVENT_EDITOR_COPY.NEXT}
-      onSaveDraft={() => void handleSaveDraft()}
       onSaveAndNext={() => void handleSaveAndNext()}
     />
   )

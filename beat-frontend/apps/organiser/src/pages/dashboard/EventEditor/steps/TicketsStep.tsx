@@ -6,13 +6,11 @@ import { TicketsStepView } from './TicketsStepView'
 
 import { EVENT_EDITOR_COPY } from '@/constants'
 import {
-  buildSessionFormData,
   buildSessionPatchFormData,
   datetimeLocalToEpoch,
   epochToDatetimeLocal,
   hasSessionPatchPayload,
 } from '@/lib/sessionFormData'
-import { validateTicketSaleWindow } from '@/lib/validation'
 
 export interface TicketsStepProps {
   eventId: string
@@ -48,10 +46,7 @@ export function TicketsStep({ eventId, session, onBack, onNext }: TicketsStepPro
   const [saleEndLocal, setSaleEndLocal] = useState(
     epochToDatetimeLocal(session?.ticketSaleEndAt)
   )
-  const [saleWindowError, setSaleWindowError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-
-  const sessionStartLocal = epochToDatetimeLocal(session?.startAt)
 
   const addTicket = () => {
     if (!draftTicket.name.trim()) {
@@ -68,21 +63,7 @@ export function TicketsStep({ eventId, session, onBack, onNext }: TicketsStepPro
     setTicketTypes((current) => current.filter((_, itemIndex) => itemIndex !== index))
   }
 
-  const validateSaleWindow = (): boolean => {
-    const message = validateTicketSaleWindow(
-      saleStartLocal,
-      saleEndLocal,
-      sessionStartLocal
-    )
-    setSaleWindowError(message)
-    if (message) {
-      setError(message)
-      return false
-    }
-    return true
-  }
-
-  const buildDraftPatch = (): UpdateSessionInput => {
+  const buildSessionPatch = (): UpdateSessionInput => {
     const patch: UpdateSessionInput = {}
 
     if (saleStartLocal) {
@@ -98,89 +79,30 @@ export function TicketsStep({ eventId, session, onBack, onNext }: TicketsStepPro
     return patch
   }
 
-  const buildFullSessionInput = () => ({
-    categoryIds: session!.categoryIds ?? [],
-    startAt: session!.startAt,
-    endAt: session!.endAt,
-    location: session!.location,
-    eventAddress: session!.eventAddress,
-    capacity: session!.capacity,
-    mode: session!.mode,
-    ticketSaleStartAt: datetimeLocalToEpoch(saleStartLocal) || session!.ticketSaleStartAt,
-    ticketSaleEndAt: datetimeLocalToEpoch(saleEndLocal) || session!.ticketSaleEndAt,
-    ticketTypes,
-  })
-
-  const handleSaveDraft = async () => {
-    setError(null)
-
-    if (!session?.id) {
-      setError('Complete Basic Info before setting up tickets.')
-      return
-    }
-
-    if (!validateSaleWindow()) {
-      return
-    }
-
-    const sessionPatch = buildDraftPatch()
-    if (!hasSessionPatchPayload(sessionPatch)) {
-      return
-    }
-
-    try {
-      const formData = buildSessionPatchFormData(sessionPatch)
-
-      await updateSession.mutateAsync({
-        eventId,
-        sessionId: session.id,
-        formData,
-      })
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Failed to save tickets.')
-    }
-  }
-
   const handleSaveAndNext = async () => {
     setError(null)
 
     if (!session?.id) {
-      setError('Complete Basic Info before setting up tickets.')
+      setError('No session found for this event.')
       return
     }
 
-    if (ticketTypes.length === 0) {
-      setError('Add at least one ticket type.')
-      return
-    }
-
-    if (!validateSaleWindow()) {
-      return
-    }
+    const sessionPatch = buildSessionPatch()
 
     try {
-      const formData = buildSessionFormData(buildFullSessionInput())
-
-      await updateSession.mutateAsync({
-        eventId,
-        sessionId: session.id,
-        formData,
-      })
+      if (hasSessionPatchPayload(sessionPatch)) {
+        const formData = buildSessionPatchFormData(sessionPatch)
+        await updateSession.mutateAsync({
+          eventId,
+          sessionId: session.id,
+          formData,
+        })
+      }
 
       onNext()
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Failed to save tickets.')
     }
-  }
-
-  const handleSaleStartChange = (value: string) => {
-    setSaleStartLocal(value)
-    setSaleWindowError(null)
-  }
-
-  const handleSaleEndChange = (value: string) => {
-    setSaleEndLocal(value)
-    setSaleWindowError(null)
   }
 
   return (
@@ -195,11 +117,9 @@ export function TicketsStep({ eventId, session, onBack, onNext }: TicketsStepPro
       draftTicket={draftTicket}
       saleStartLocal={saleStartLocal}
       saleEndLocal={saleEndLocal}
-      saleWindowError={saleWindowError}
       error={error}
       isSaving={updateSession.isPending}
       backLabel={EVENT_EDITOR_COPY.BACK}
-      saveLabel={EVENT_EDITOR_COPY.SAVE}
       nextLabel={EVENT_EDITOR_COPY.NEXT}
       onShowForm={() => setShowForm(true)}
       onRemoveTicket={removeTicket}
@@ -213,10 +133,9 @@ export function TicketsStep({ eventId, session, onBack, onNext }: TicketsStepPro
         setDraftTicket((current) => ({ ...current, quantity: value }))
       }
       onAddTicket={addTicket}
-      onSaleStartChange={handleSaleStartChange}
-      onSaleEndChange={handleSaleEndChange}
+      onSaleStartChange={setSaleStartLocal}
+      onSaleEndChange={setSaleEndLocal}
       onBack={onBack}
-      onSaveDraft={() => void handleSaveDraft()}
       onSaveAndNext={() => void handleSaveAndNext()}
     />
   )
