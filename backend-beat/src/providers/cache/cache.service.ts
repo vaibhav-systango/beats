@@ -46,6 +46,17 @@ export class CacheService {
   }
 
   /**
+   * Deletes all cache entries whose keys start with the given prefix.
+   */
+  async deleteByPrefix(prefix: string): Promise<void> {
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(prefix)) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
+  /**
    * Clears the entire in-memory store.
    */
   async clear(): Promise<void> {

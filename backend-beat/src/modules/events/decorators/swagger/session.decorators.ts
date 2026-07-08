@@ -1,5 +1,6 @@
 import { applyDecorators } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiBearerAuth, ApiConsumes, ApiQuery } from '@nestjs/swagger';
+import { SessionMode, SessionStatus } from '../../../../database/entities/event-session.entity';
 
 export function CreateSessionSwagger() {
   return applyDecorators(
@@ -237,6 +238,11 @@ export function GetEventSessionsSwagger() {
     ApiOperation({ summary: 'List all sessions associated with a specific event' }),
     ApiBearerAuth(),
     ApiParam({ name: 'eventId', description: 'Event ULID' }),
+    ApiQuery({ name: 'search', required: false, type: String, description: 'Search sessions by title, city, or venue name' }),
+    ApiQuery({ name: 'mode', required: false, enum: SessionMode, description: 'Filter sessions by mode (ONLINE, OFFLINE, HYBRID)' }),
+    ApiQuery({ name: 'status', required: false, enum: SessionStatus, description: 'Filter sessions by status (ACTIVE, CANCELLED, COMPLETED)' }),
+    ApiQuery({ name: 'limit', required: false, type: Number, description: 'Pagination limit' }),
+    ApiQuery({ name: 'offset', required: false, type: Number, description: 'Pagination offset' }),
     ApiResponse({ status: 200, description: 'List of sessions returned successfully.' }),
     ApiResponse({ status: 404, description: 'Not Found.' }),
     ApiResponse({ status: 500, description: 'Internal Server Error.' }),
