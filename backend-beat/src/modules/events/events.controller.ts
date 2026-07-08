@@ -36,6 +36,7 @@ import { EventMessages, EventConstants } from './constants/events.constants';
 import { EventsHelper } from './helpers/events.helper';
 import { ReviewEventSwagger } from './decorators/swagger/review-event.decorator';
 import { CancelEventSwagger } from './decorators/swagger/cancel-event.decorator';
+import { SessionMode, SessionStatus } from '../../database/entities/event-session.entity';
 
 // Swagger decorators
 import { CreateEventSwagger } from './decorators/swagger/create-event.decorator';
@@ -317,9 +318,26 @@ export class EventsController {
   @GetEventSessionsSwagger()
   async getSessions(
     @Param('eventId', UlidValidationPipe) eventId: string,
+    @Query('search') search?: string,
+    @Query('mode') mode?: SessionMode,
+    @Query('status') status?: SessionStatus,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
     try {
-      return await this.eventsService.getEventSessions(eventId);
+      const parsedLimit = limit ? parseInt(limit, 10) : NaN;
+      const parsedOffset = offset ? parseInt(offset, 10) : NaN;
+
+      const limitVal = !isNaN(parsedLimit) && parsedLimit > 0 ? parsedLimit : undefined;
+      const offsetVal = !isNaN(parsedOffset) && parsedOffset >= 0 ? parsedOffset : undefined;
+
+      return await this.eventsService.getEventSessions(eventId, {
+        search,
+        mode,
+        status,
+        limit: limitVal,
+        offset: offsetVal,
+      });
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -344,11 +362,37 @@ export class EventsController {
   async getPublicDiscovery(
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('search') search?: string,
+    @Query('city') city?: string,
+    @Query('category') category?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('language') language?: string,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+    @Query('radius') radius?: string,
   ) {
     try {
       const limitVal = limit ? parseInt(limit, 10) : 10;
       const offsetVal = offset ? parseInt(offset, 10) : 0;
-      return await this.eventsService.getPublicDiscoveryEvents(limitVal, offsetVal);
+      const dateFromVal = dateFrom ? parseInt(dateFrom, 10) : undefined;
+      const dateToVal = dateTo ? parseInt(dateTo, 10) : undefined;
+      const latVal = lat ? parseFloat(lat) : undefined;
+      const lngVal = lng ? parseFloat(lng) : undefined;
+
+      return await this.eventsService.getPublicDiscoveryEvents(
+        limitVal,
+        offsetVal,
+        search,
+        city,
+        category,
+        dateFromVal,
+        dateToVal,
+        language,
+        latVal,
+        lngVal,
+        radius,
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -356,6 +400,37 @@ export class EventsController {
       this.logger.error('Error occurred in public discovery: ', error);
       throw new InternalServerErrorException({
         message: EventMessages.UNEXPECTED_ERROR,
+      });
+    }
+  }
+
+  /**
+   * Retrieves autocomplete search suggestions.
+   */
+  @Get('suggestions')
+  async getSuggestions(@Query('q') query?: string) {
+    try {
+      if (!query) return [];
+      return await this.eventsService.getSuggestions(query);
+    } catch (error) {
+      this.logger.error('Error in autocomplete suggestions endpoint', error);
+      throw new InternalServerErrorException({
+        message: 'Unexpected error occurred while fetching suggestions',
+      });
+    }
+  }
+
+  /**
+   * Retrieves trending search terms from Redis.
+   */
+  @Get('trending-searches')
+  async getTrendingSearches() {
+    try {
+      return await this.eventsService.getTrendingSearches();
+    } catch (error) {
+      this.logger.error('Error in trending searches endpoint', error);
+      throw new InternalServerErrorException({
+        message: 'Unexpected error occurred while fetching trending searches',
       });
     }
   }

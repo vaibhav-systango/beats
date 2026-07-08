@@ -9,11 +9,14 @@ import { EventsController } from './events.controller';
 // Services
 import { EventsService } from './services/events.service';
 import { EventsHelper } from './helpers/events.helper';
+import { SearchModule } from '../search/search.module';
+
 @Module({
   imports: [
     DatabaseModule, 
     EmailModule,
     StorageModule,
+    SearchModule,
   ],
   controllers: [
     EventsController,
