@@ -18,6 +18,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RoutePermissionGuard } from '../auth/guards/route-permission.guard';
 
 import { EventCategoryService } from './services/event-category.service';
 import { CreateEventCategoryDto } from './dto/create-event-category.dto';
@@ -41,7 +42,7 @@ export class EventCategoriesController {
   constructor(private readonly eventCategoryService: EventCategoryService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RoutePermissionGuard)
   @HttpCode(HttpStatus.CREATED)
   @CreateEventCategorySwagger()
   async create(@Body() dto: CreateEventCategoryDto) {

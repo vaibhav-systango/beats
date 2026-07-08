@@ -1,13 +1,24 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, InternalServerErrorException } from '@nestjs/common';
 import { CreateEventSessionDto } from '../dto/create-session.dto';
 import { StorageService } from '../../storage/services/storage.service';
+import { UserRepository } from 'src/database/repositories/user.repository';
+import { EmailService } from 'src/providers/email/email-template';
+import { UserRole } from 'src/common/enums/user.enums';
+import { EventMessages } from '../constants/events.constants';
 
 const YOUTUBE_VIDEO_ID_PATTERN =
   /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 
 @Injectable()
 export class EventsHelper {
-  constructor(private readonly storageService: StorageService) {}
+  
+  private readonly logger = new Logger(EventsHelper.name);
+
+  constructor(
+    private readonly storageService: StorageService,
+    private readonly userRepository: UserRepository,
+    private readonly emailService: EmailService,
+  ) {}
 
   private extractYouTubeVideoId(url: string): string | null {
     const match = url.trim().match(YOUTUBE_VIDEO_ID_PATTERN);
@@ -292,5 +303,40 @@ export class EventsHelper {
         });
       }
     }
+  }
+
+  async getAdminEmails(): Promise<string[]> {
+    const emails = await this.userRepository.findActiveEmailsByRole(
+      UserRole.ADMIN,
+    );
+
+    if (emails.length === 0) {
+       throw new InternalServerErrorException(EventMessages.NO_ACTIVE_ADMIN_USERS);
+    }
+
+    return emails;
+  }
+
+  async sendEmailToAdmins(
+    templateName: 'event.submitted',
+    templateVars: Record<string, any>,
+  ): Promise<void> {
+    const adminEmails = await this.getAdminEmails();
+    const template = this.emailService.getEmailTemplate(
+      templateName,
+      templateVars,
+    );
+    await Promise.all(
+      adminEmails.map((email) =>
+        this.emailService
+          .sendEmail(email, template.subject, template.text, template.html)
+          .catch((err) => {
+            const maskedEmail = email.replace(/(.{2}).+(@.+)/, '$1***$2');
+            this.logger.error(
+              `Failed to send email to admin (${maskedEmail}): ${err.message}`,
+            );
+          }),
+      ),
+    );
   }
 }

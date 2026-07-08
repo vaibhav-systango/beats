@@ -27,7 +27,7 @@ export class UpdateEventsTable1782732981929 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "events" DROP COLUMN "referral_reward_per_ticket"`);
         await queryRunner.query(`ALTER TABLE "events" DROP COLUMN "allow_promoters"`);
         await queryRunner.query(`ALTER TABLE "events" DROP COLUMN "promoter_commission_percentage"`);
-        await queryRunner.query(`ALTER TABLE "otps" ADD "failedAttempts" integer NOT NULL DEFAULT '0'`);
+        await queryRunner.query(`ALTER TABLE "otps" ADD COLUMN IF NOT EXISTS "failedAttempts" integer NOT NULL DEFAULT '0'`);
         await queryRunner.query(`ALTER TABLE "events" ADD "status_log" jsonb NOT NULL DEFAULT '[]'`);
         await queryRunner.query(`ALTER TYPE "public"."events_status_enum" RENAME TO "events_status_enum_old"`);
         await queryRunner.query(`CREATE TYPE "public"."events_status_enum" AS ENUM('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'PUBLISHED', 'COMPLETED', 'CANCELLED')`);
@@ -61,7 +61,7 @@ export class UpdateEventsTable1782732981929 implements MigrationInterface {
         await queryRunner.query(`DROP TYPE "public"."events_status_enum"`);
         await queryRunner.query(`ALTER TYPE "public"."events_status_enum_old" RENAME TO "events_status_enum"`);
         await queryRunner.query(`ALTER TABLE "events" DROP COLUMN "status_log"`);
-        await queryRunner.query(`ALTER TABLE "otps" DROP COLUMN "failedAttempts"`);
+        await queryRunner.query(`ALTER TABLE "otps" DROP COLUMN IF EXISTS "failedAttempts"`);
         await queryRunner.query(`ALTER TABLE "events" ADD "promoter_commission_percentage" numeric(5,2)`);
         await queryRunner.query(`ALTER TABLE "events" ADD "allow_promoters" boolean NOT NULL DEFAULT false`);
         await queryRunner.query(`ALTER TABLE "events" ADD "referral_reward_per_ticket" numeric(10,2)`);

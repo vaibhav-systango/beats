@@ -16,6 +16,7 @@ import { ulid } from 'ulid';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { BullModule } from '@nestjs/bullmq';
 import {
   minioConfiguration,
   s3Configuration,
@@ -23,6 +24,7 @@ import {
 } from './config/storage.configuration';
 import { loggerConfiguration } from './config/logger.configuration';
 import { UsersModule } from './modules/users/users.module';
+import { SearchModule } from './modules/search/search.module';
 
 @Module({
   imports: [
@@ -42,6 +44,16 @@ import { UsersModule } from './modules/users/users.module';
         config.getOrThrow<Params>('logger'),
     }),
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60000, limit: 500 }] }),
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          host: config.get<string>('REDIS_HOST', 'localhost'),
+          port: parseInt(config.get<string>('REDIS_PORT', '6379'), 10),
+        },
+      }),
+    }),
+    SearchModule,
     AuthModule,
     EventCategoriesModule,
     UsersModule,

@@ -6,13 +6,17 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { DataSource, IsNull} from 'typeorm';
+import { DataSource, IsNull, In, Not } from 'typeorm';
 import { ulid } from 'ulid';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { SearchService } from '../../search/services/search.service';
 import { Event, EventStatus } from '../../../database/entities/event.entity';
 import { User } from '../../../database/entities/user.entity';
 import {
   EventSession,
   SessionStatus,
+  SessionMode,
 } from '../../../database/entities/event-session.entity';
 import {
   SessionTicketType,
@@ -31,6 +35,7 @@ import { EventSessionRepository } from '../../../database/repositories/event-ses
 import { SessionTicketTypeRepository } from '../../../database/repositories/session-ticket-type.repository';
 import { EventMessages, EventConstants } from '../constants/events.constants';
 import { EventValidator } from './events.validator';
+import { EventsHelper } from '../helpers/events.helper';
 
 @Injectable()
 export class EventsService {
@@ -43,6 +48,10 @@ export class EventsService {
     private readonly eventSessionRepository: EventSessionRepository,
     private readonly sessionTicketTypeRepository: SessionTicketTypeRepository,
     private readonly cacheService: CacheService,
+    private readonly eventsHelper: EventsHelper,
+    private readonly searchService: SearchService,
+    @InjectQueue('search-sync') private readonly searchSyncQueue: Queue,
+    @InjectQueue('search-analytics') private readonly searchAnalyticsQueue: Queue,
   ) {}
 
   /**
@@ -50,7 +59,7 @@ export class EventsService {
    */
   async invalidateEventCache(eventId?: string): Promise<void> {
     this.logger.log(`[CACHE] Invalidating cache for eventId: ${eventId || 'all'}`);
-    await this.cacheService.del('public:discovery');
+    await this.cacheService.deleteByPrefix('public:discovery:');
     if (eventId) {
       await this.cacheService.del(`event:details:${eventId}`);
     }
@@ -96,6 +105,7 @@ export class EventsService {
     });
 
     await this.invalidateEventCache();
+    await this.searchSyncQueue.add('upsert-event', { eventId: result.id });
     return result;
   }
 
@@ -137,27 +147,22 @@ export class EventsService {
 
       // Notify admin team
       try {
-        const adminEmail = process.env.ADMIN_EMAIL || 'admin@beats-events.com';
         const details = await this.buildEventDetailsHtml(event.id);
         const orgUser = await this.dataSource.getRepository(User).findOne({
           where: { id: organizerId },
         });
-        const organizerDisplayName = (orgUser?.fullName && orgUser.fullName.trim() !== '') ? orgUser.fullName.trim() : organizerId;
+        const organizerDisplayName =
+          orgUser?.fullName && orgUser.fullName.trim() !== ''
+            ? orgUser.fullName.trim()
+            : organizerId;
 
-        const template = this.emailService.getEmailTemplate('event.submitted', {
+        await this.eventsHelper.sendEmailToAdmins('event.submitted', {
           title: event.title,
           organizerId: organizerDisplayName,
           submitType: 'Shadow Copy Modification Revision',
-
           details,
           eventId: event.id,
         });
-        await this.emailService.sendEmail(
-          adminEmail,
-          template.subject,
-          template.text,
-          template.html,
-        );
       } catch (mailErr) {
         this.logger.error(
           `Failed to send revision submission email: ${mailErr.message}`,
@@ -183,6 +188,14 @@ export class EventsService {
         throw new NotFoundException(EventMessages.NOT_FOUND);
       }
 
+      // Re-verify authorization and lock state inside transaction context to prevent race conditions
+      if (txEvent.organizerId !== organizerId) {
+        throw new ForbiddenException(EventMessages.FORBIDDEN_UPDATE);
+      }
+      if (txEvent.status === EventStatus.PENDING_APPROVAL || txEvent.status === EventStatus.PUBLISHED) {
+        throw new ConflictException(EventMessages.LOCKED);
+      }
+
       if (dto.title !== undefined) {
         txEvent.title = dto.title.trim();
       }
@@ -190,16 +203,16 @@ export class EventsService {
         txEvent.description = dto.description.trim();
       }
 
+      // Simplified slug-generation and collision checks
+      let targetSlug: string | undefined;
       if (dto.title !== undefined && dto.slug === undefined) {
-        txEvent.slug = this.slugify(dto.title);
-        const existingSlug = await manager.findOne(Event, {
-          where: { slug: txEvent.slug, deletedAt: IsNull() },
-        });
-        if (existingSlug && existingSlug.id !== txEvent.id) {
-          txEvent.slug = `${txEvent.slug}-${txEvent.id.substring(0, 6)}`;
-        }
+        targetSlug = this.slugify(dto.title);
       } else if (dto.slug !== undefined) {
-        txEvent.slug = dto.slug.trim();
+        targetSlug = dto.slug.trim();
+      }
+
+      if (targetSlug !== undefined) {
+        txEvent.slug = targetSlug;
         const existingSlug = await manager.findOne(Event, {
           where: { slug: txEvent.slug, deletedAt: IsNull() },
         });
@@ -212,6 +225,7 @@ export class EventsService {
     });
 
     await this.invalidateEventCache(id);
+    await this.searchSyncQueue.add('upsert-event', { eventId: id });
     return result;
   }
 
@@ -255,27 +269,22 @@ export class EventsService {
 
     // Alert admin team
     try {
-      const adminEmail = process.env.ADMIN_EMAIL || 'admin@beats-events.com';
       const details = await this.buildEventDetailsHtml(savedEvent.id);
       const orgUser = await this.dataSource.getRepository(User).findOne({
         where: { id: organizerId },
       });
-      const organizerDisplayName = (orgUser?.fullName && orgUser.fullName.trim() !== '') ? orgUser.fullName.trim() : organizerId;
+      const organizerDisplayName =
+        orgUser?.fullName && orgUser.fullName.trim() !== ''
+          ? orgUser.fullName.trim()
+          : organizerId;
 
-      const template = this.emailService.getEmailTemplate('event.submitted', {
+      await this.eventsHelper.sendEmailToAdmins('event.submitted', {
         title: savedEvent.title,
         organizerId: organizerDisplayName,
         submitType: 'Event Dedicated Submission',
-
         details,
         eventId: savedEvent.id,
       });
-      await this.emailService.sendEmail(
-        adminEmail,
-        template.subject,
-        template.text,
-        template.html,
-      );
     } catch (mailErr) {
       this.logger.error(
         `Failed to send email to admin: ${mailErr.message}`,
@@ -283,6 +292,7 @@ export class EventsService {
     }
 
     await this.invalidateEventCache(id);
+    await this.searchSyncQueue.add('upsert-event', { eventId: savedEvent.id });
     return savedEvent;
   }
 
@@ -304,6 +314,7 @@ export class EventsService {
     await this.eventRepository.save(event);
 
     await this.invalidateEventCache(id);
+    await this.searchSyncQueue.add('delete-event', { eventId: id });
     return { message: EventMessages.DELETED };
   }
 
@@ -426,6 +437,7 @@ export class EventsService {
     });
 
     await this.invalidateEventCache(eventId);
+    await this.searchSyncQueue.add('upsert-event', { eventId });
     return result;
   }
 
@@ -647,6 +659,7 @@ export class EventsService {
     });
 
     await this.invalidateEventCache(eventId);
+    await this.searchSyncQueue.add('upsert-event', { eventId });
     return result;
   }
 
@@ -688,14 +701,60 @@ export class EventsService {
     });
 
     await this.invalidateEventCache(eventId);
+    await this.searchSyncQueue.add('delete-session', { sessionId });
     return { message: 'Session deleted successfully.' };
   }
 
   /**
    * Lists all active sessions for a specific event.
    */
-  async getEventSessions(eventId: string) {
-    const sessions = await this.eventSessionRepository.findSessionsByEventId(eventId);
+  async getEventSessions(
+    eventId: string,
+    options?: {
+      search?: string;
+      mode?: SessionMode;
+      status?: SessionStatus;
+      limit?: number;
+      offset?: number;
+    },
+  ) {
+    const queryBuilder = this.eventSessionRepository
+      .createQueryBuilder('session')
+      .where('session.eventId = :eventId', { eventId })
+      .andWhere('session.deletedAt IS NULL');
+
+    if (options?.mode) {
+      queryBuilder.andWhere('session.mode = :mode', { mode: options.mode });
+    }
+
+    if (options?.status) {
+      queryBuilder.andWhere('session.status = :status', { status: options.status });
+    }
+
+    if (options?.search && options.search.trim()) {
+      const searchTerm = `%${options.search.trim().toLowerCase()}%`;
+      queryBuilder.andWhere(
+        '(LOWER(session.title) LIKE :searchTerm OR ' +
+        'LOWER(session.event_address->>\'city\') LIKE :searchTerm OR ' +
+        'LOWER(session.event_address->>\'venueName\') LIKE :searchTerm OR ' +
+        'LOWER(session.event_address->>\'formattedAddress\') LIKE :searchTerm OR ' +
+        'LOWER(session.artist_metadata::text) LIKE :searchTerm)',
+        { searchTerm }
+      );
+    }
+
+    queryBuilder.orderBy('session.priorityWeight', 'DESC')
+                .addOrderBy('session.startAt', 'ASC');
+
+    if (options?.limit !== undefined) {
+      queryBuilder.take(options.limit);
+    }
+    if (options?.offset !== undefined) {
+      queryBuilder.skip(options.offset);
+    }
+
+    const sessions = await queryBuilder.getMany();
+
     for (const session of sessions) {
       session['ticketTypes'] = await this.sessionTicketTypeRepository.findTicketsBySessionId(session.id);
     }
@@ -746,22 +805,218 @@ export class EventsService {
     return event;
   }
 
-  async getPublicDiscoveryEvents(limit: number = 10, offset: number = 0) {
-    const cacheKey = `public:discovery:${limit}:${offset}`;
-    const cached = await this.cacheService.get<Event[]>(cacheKey);
-    if (cached) {
-      this.logger.log(`[CACHE] Hit for public discovery feed (limit: ${limit}, offset: ${offset})`);
-      return cached;
+  async getPublicDiscoveryEvents(
+    limit: number = 10,
+    offset: number = 0,
+    search?: string,
+    city?: string,
+    category?: string,
+    dateFrom?: number,
+    dateTo?: number,
+    language?: string,
+    lat?: number,
+    lng?: number,
+    radius?: string,
+  ) {
+    const hasSearchParams = !!(
+      search ||
+      city ||
+      category ||
+      dateFrom ||
+      dateTo ||
+      language ||
+      (lat !== undefined && lng !== undefined)
+    );
+
+    if (!hasSearchParams) {
+      const cacheKey = `public:discovery:${limit}:${offset}`;
+      const cached = await this.cacheService.get<any>(cacheKey);
+      if (cached) {
+        this.logger.log(`[CACHE] Hit for public discovery feed (limit: ${limit}, offset: ${offset})`);
+        return cached;
+      }
+
+      this.logger.log(`[CACHE] Miss for public discovery feed (limit: ${limit}, offset: ${offset})`);
+      const total = await this.countLivePublishedEvents();
+      const events = await this.eventRepository.findLivePublishedEvents(limit, offset);
+
+      const output = await this.enrichEventsWithActiveSessions(events);
+
+      const resultShape = {
+        data: output,
+        pagination: {
+          total,
+          limit,
+          offset,
+        },
+      };
+
+      await this.cacheService.set(cacheKey, resultShape, EventConstants.DISCOVERY_CACHE_TTL_MS);
+      return resultShape;
     }
 
-    this.logger.log(`[CACHE] Miss for public discovery feed (limit: ${limit}, offset: ${offset})`);
-    const events = await this.eventRepository.findLivePublishedEvents(limit, offset);
+    // Process search keyword tracking asynchronously
+    if (search && search.trim()) {
+      const normalized = search.trim().toLowerCase();
+      if (normalized) {
+        await this.searchAnalyticsQueue.add('track-search', { query: normalized }).catch((err) => {
+          this.logger.error('Failed to queue track-search analytics job', err);
+        });
+      }
+    }
 
+    let searchResult: any;
+    let fallback = false;
+
+    try {
+      searchResult = await this.searchService.search({
+        query: search,
+        city,
+        category,
+        dateFrom,
+        dateTo,
+        language,
+        lat,
+        lng,
+        radius,
+        limit,
+        offset,
+      });
+    } catch (error) {
+      this.logger.error('OpenSearch search failed, falling back to PostgreSQL discovery', error);
+      fallback = true;
+    }
+
+    if (fallback) {
+      const total = await this.countLivePublishedEvents();
+      const events = await this.eventRepository.findLivePublishedEvents(limit, offset);
+
+      const output = await this.enrichEventsWithActiveSessions(events);
+
+      return {
+        data: output,
+        pagination: {
+          total,
+          limit,
+          offset,
+        },
+      };
+    }
+
+    const hits = searchResult.hits;
+    const total = searchResult.total;
+
+    if (hits.length === 0) {
+      return {
+        data: [],
+        pagination: {
+          total,
+          limit,
+          offset,
+        },
+      };
+    }
+
+    const sessionIds = hits.map((h: any) => h.sessionId);
+    const eventIds = Array.from(new Set(hits.map((h: any) => h.eventId) as string[]));
+
+    const rawSessions = await this.eventSessionRepository.find({
+      where: { id: In(sessionIds) },
+    });
+
+    const rawEvents = await this.eventRepository.find({
+      where: { id: In(eventIds) },
+    });
+
+    const ticketTypesList = await this.sessionTicketTypeRepository.find({
+      where: {
+        sessionId: In(sessionIds),
+        status: Not(TicketTypeStatus.INACTIVE),
+      },
+    });
+
+    const sessionCategoriesList = await this.dataSource.getRepository(SessionCategory).find({
+      where: { sessionId: In(sessionIds) },
+      relations: { category: true },
+    });
+
+    const eventsMap = new Map(rawEvents.map((e) => [e.id, e]));
+    const sessionsMap = new Map(rawSessions.map((s) => [s.id, s]));
+
+    const ticketTypesMap = new Map<string, any[]>();
+    for (const tt of ticketTypesList) {
+      if (!ticketTypesMap.has(tt.sessionId)) {
+        ticketTypesMap.set(tt.sessionId, []);
+      }
+      ticketTypesMap.get(tt.sessionId)!.push(tt);
+    }
+
+    const categoriesMap = new Map<string, any[]>();
+    for (const sc of sessionCategoriesList) {
+      if (!categoriesMap.has(sc.sessionId)) {
+        categoriesMap.set(sc.sessionId, []);
+      }
+      if (sc.category) {
+        categoriesMap.get(sc.sessionId)!.push(sc.category);
+      }
+    }
+
+    const highlightsMap = new Map(hits.map((h: any) => [h.sessionId, h.highlights]));
+
+    const orderedEvents: any[] = [];
+    const eventTracker = new Set<string>();
+    const eventSessionsGroup = new Map<string, any[]>();
+
+    for (const hit of hits) {
+      const session = sessionsMap.get(hit.sessionId);
+      const eventObj = eventsMap.get(hit.eventId);
+
+      if (!session || !eventObj) continue;
+
+      session['ticketTypes'] = ticketTypesMap.get(session.id) || [];
+      session['categories'] = categoriesMap.get(session.id) || [];
+      
+      const hg = highlightsMap.get(session.id);
+      if (hg && Object.keys(hg).length > 0) {
+        session['highlights'] = hg;
+      }
+
+      if (!eventTracker.has(hit.eventId)) {
+        eventTracker.add(hit.eventId);
+        orderedEvents.push(eventObj);
+      }
+
+      if (!eventSessionsGroup.has(hit.eventId)) {
+        eventSessionsGroup.set(hit.eventId, []);
+      }
+      eventSessionsGroup.get(hit.eventId)!.push(session);
+    }
+
+    const data = orderedEvents.map((event) => {
+      const clonedEvent = { ...event };
+      delete clonedEvent.statusLog;
+      clonedEvent['sessions'] = eventSessionsGroup.get(event.id) || [];
+      return clonedEvent;
+    });
+
+    return {
+      data,
+      pagination: {
+        total,
+        limit,
+        offset,
+      },
+    };
+  }
+
+  /**
+   * Enriches a list of events by attaching their active sessions,
+   * ticket types, and categories. Events with no active sessions are excluded.
+   */
+  private async enrichEventsWithActiveSessions(events: Event[]): Promise<Event[]> {
     const output: Event[] = [];
-
     for (const event of events) {
       delete (event as any).statusLog;
-      // Find active operational sessions via repository method
       const sessions = await this.eventSessionRepository.findActiveSessionsByEventId(event.id);
 
       if (sessions.length > 0) {
@@ -769,11 +1024,11 @@ export class EventsService {
           session['ticketTypes'] = await this.sessionTicketTypeRepository.findActiveTicketsBySessionId(session.id);
 
           const scs = await this.dataSource
-             .getRepository(SessionCategory)
-             .find({
-               where: { sessionId: session.id },
-               relations: { category: true },
-             });
+            .getRepository(SessionCategory)
+            .find({
+              where: { sessionId: session.id },
+              relations: { category: true },
+            });
           session['categories'] = scs.map((sc) => sc.category).filter(Boolean);
         }
 
@@ -781,10 +1036,33 @@ export class EventsService {
         output.push(event);
       }
     }
-
-    // Cache discovery feed for 30 seconds (using EventConstants TTL)
-    await this.cacheService.set(cacheKey, output, EventConstants.DISCOVERY_CACHE_TTL_MS);
     return output;
+  }
+
+  async countLivePublishedEvents(): Promise<number> {
+    return this.eventRepository.createQueryBuilder('event')
+      .where('event.status = :status', { status: EventStatus.PUBLISHED })
+      .andWhere('event.deleted_at IS NULL')
+      .andWhere((qb) => {
+        const subQuery = qb
+          .subQuery()
+          .select('1')
+          .from('event_sessions', 'session')
+          .where('session.event_id = event.id')
+          .andWhere('session.deleted_at IS NULL')
+          .andWhere('session.status = :sessionStatus', { sessionStatus: 'ACTIVE' })
+          .getQuery();
+        return `EXISTS (${subQuery})`;
+      })
+      .getCount();
+  }
+
+  async getSuggestions(query: string): Promise<string[]> {
+    return this.searchService.getSuggestions(query);
+  }
+
+  async getTrendingSearches(): Promise<string[]> {
+    return this.searchService.getTrendingSearches();
   }
 
   /**
@@ -810,11 +1088,11 @@ export class EventsService {
               </tr>
               <tr>
                 <td style="padding: 6px 0; font-weight: bold; vertical-align: top; color: #64748b;">URL Slug:</td>
-                <td style="padding: 6px 0; font-family: monospace; color: #2563eb;">${event.slug}</td>
+                <td style="padding: 6px 0; font-family: monospace; color: #2563eb;">${this.escapeHtml(event.slug)}</td>
               </tr>
               <tr>
                 <td style="padding: 6px 0; font-weight: bold; vertical-align: top; color: #64748b;">Description:</td>
-                <td style="padding: 6px 0; line-height: 1.5; color: #334155;">${event.description}</td>
+                <td style="padding: 6px 0; line-height: 1.5; color: #334155;">${this.escapeHtml(event.description)}</td>
               </tr>
               <tr>
                 <td style="padding: 6px 0; font-weight: bold; vertical-align: top; color: #64748b;">Current Status:</td>
@@ -894,7 +1172,7 @@ export class EventsService {
             const rowBg = j % 2 === 0 ? '#ffffff' : '#f8fafc';
             ticketsTableHtml += `
               <tr style="background-color: ${rowBg}; border-bottom: 1px solid #f1f5f9;">
-                <td style="padding: 8px 10px; color: #0f172a; font-weight: 600;">${t.name}</td>
+                <td style="padding: 8px 10px; color: #0f172a; font-weight: 600;">${this.escapeHtml(t.name)}</td>
                 <td style="padding: 8px 10px; color: #16a34a; font-weight: 700; font-family: monospace; font-size: 13px;">$${(t.price / 100).toFixed(2)}</td>
                 <td style="padding: 8px 10px; color: #475569; font-family: monospace;">${t.quantity} / ${session.capacity}</td>
                 <td style="padding: 8px 10px; color: #475569; font-family: monospace;">${t.maxPurchaseLimit}</td>
@@ -916,7 +1194,7 @@ export class EventsService {
         html += `
           <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-top: 4px solid #4f46e5; border-radius: 8px; padding: 18px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -2px rgba(0,0,0,0.02);">
             <div style="font-size: 15px; font-weight: bold; color: #1e1b4b; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
-              <span>Session #${i + 1}: ${session.title || 'Untitled'}</span>
+              <span>Session #${i + 1}: ${this.escapeHtml(session.title || 'Untitled')}</span>
               <span style="font-family: monospace; font-size: 11px; background-color: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: 500;">ID: ${session.id}</span>
             </div>
             
@@ -927,7 +1205,7 @@ export class EventsService {
               </tr>
               <tr style="border-bottom: 1px solid #f8fafc;">
                 <td style="padding: 5px 0; font-weight: bold; color: #64748b;">📍 Venue Address:</td>
-                <td style="padding: 5px 0; color: #0f172a; font-weight: 500;">${fullAddrStr}</td>
+                <td style="padding: 5px 0; color: #0f172a; font-weight: 500;">${this.escapeHtml(fullAddrStr)}</td>
               </tr>
               <tr style="border-bottom: 1px solid #f8fafc;">
                 <td style="padding: 5px 0; font-weight: bold; color: #64748b;">🌐 Coordinates:</td>
@@ -943,16 +1221,16 @@ export class EventsService {
               <tr style="border-bottom: 1px solid #f8fafc;">
                 <td style="padding: 5px 0; font-weight: bold; color: #64748b;">🔞 Age Restriction:</td>
                 <td style="padding: 5px 0; color: #0f172a;">
-                  <span style="background-color: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">${session.ageRestriction || 'ALL AGES'}</span>
+                  <span style="background-color: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">${this.escapeHtml(session.ageRestriction || 'ALL AGES')}</span>
                 </td>
               </tr>
               <tr style="border-bottom: 1px solid #f8fafc;">
                 <td style="padding: 5px 0; font-weight: bold; color: #64748b;">🏷️ Categories:</td>
-                <td style="padding: 5px 0; color: #0f172a; font-weight: 500;">${categoriesList}</td>
+                <td style="padding: 5px 0; color: #0f172a; font-weight: 500;">${this.escapeHtml(categoriesList)}</td>
               </tr>
               <tr style="border-bottom: 1px solid #f8fafc;">
                 <td style="padding: 5px 0; font-weight: bold; color: #64748b;">🗣️ Languages:</td>
-                <td style="padding: 5px 0; color: #0f172a; font-weight: 500;">${languagesList}</td>
+                <td style="padding: 5px 0; color: #0f172a; font-weight: 500;">${this.escapeHtml(languagesList)}</td>
               </tr>
               <tr>
                 <td style="padding: 5px 0; font-weight: bold; color: #64748b;">🎫 Ticket Sales:</td>
@@ -997,7 +1275,12 @@ export class EventsService {
       const organizer = await manager.getRepository(User).findOne({
         where: { id: event.organizerId },
       });
-      const organizerEmail = organizer?.email || 'organizer@example.com';
+
+      if (!organizer) {
+        throw new NotFoundException(
+          `Organizer record not found for organizer ID: ${event.organizerId}`,
+        );
+      }
 
       // 2. Identify if there is a pending revision (Shadow Copy Pattern)
       const revisionIndex = event.statusLog.findIndex(
@@ -1048,7 +1331,8 @@ export class EventsService {
             event: savedEvent,
             emailAction: {
               type: 'approved',
-              email: organizerEmail,
+              organizerId: organizer.id,
+              organizerEmail: organizer.email,
               title: savedEvent.title,
               publishAt: 'Live (Immediate Revision)',
             },
@@ -1074,7 +1358,8 @@ export class EventsService {
             event: savedEvent,
             emailAction: {
               type: 'rejected',
-              email: organizerEmail,
+              organizerId: organizer.id,
+              organizerEmail: organizer.email,
               title: savedEvent.title,
               reason: dto.reason,
             },
@@ -1114,7 +1399,8 @@ export class EventsService {
           event: savedEvent,
           emailAction: {
             type: 'approved',
-            email: organizerEmail,
+            organizerId: organizer.id,
+            organizerEmail: organizer.email,
             title: savedEvent.title,
           },
         };
@@ -1136,7 +1422,8 @@ export class EventsService {
           event: savedEvent,
           emailAction: {
             type: 'rejected',
-            email: organizerEmail,
+            organizerId: organizer.id,
+            organizerEmail: organizer.email,
             title: savedEvent.title,
             reason: dto.reason,
           },
@@ -1145,37 +1432,62 @@ export class EventsService {
     });
 
     await this.invalidateEventCache(eventId);
+    await this.searchSyncQueue.add('upsert-event', { eventId });
 
     if (result?.emailAction) {
-      const { type, email, title, publishAt, reason } = result.emailAction;
-      try {
-        if (type === 'approved') {
-          const template = this.emailService.getEmailTemplate('event.approved', {
-            title,
-            ...(publishAt ? { publishAt } : {}),
-          });
-          await this.emailService.sendEmail(
-            email,
-            template.subject,
-            template.text,
-            template.html,
+      const { type, organizerId, organizerEmail, title, publishAt, reason } =
+        result.emailAction;
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const isValidEmail =
+        organizerEmail && emailRegex.test(organizerEmail.trim());
+
+      if (!isValidEmail) {
+        this.logger.warn(
+          `Organizer notification skipped. No valid email configured for organizer ID: ${organizerId}. Configured email: "${organizerEmail || ''}"`,
+        );
+      } else {
+        const email = organizerEmail.trim();
+        try {
+          if (type === 'approved') {
+            const template = this.emailService.getEmailTemplate(
+              'event.approved',
+              {
+                title,
+                ...(publishAt ? { publishAt } : {}),
+              },
+            );
+            await this.emailService.sendEmail(
+              email,
+              template.subject,
+              template.text,
+              template.html,
+            );
+          } else {
+            const template = this.emailService.getEmailTemplate(
+              'event.rejected',
+              {
+                title,
+                reason,
+              },
+            );
+            await this.emailService.sendEmail(
+              email,
+              template.subject,
+              template.text,
+              template.html,
+            );
+          }
+          this.logger.log(
+            `Successfully sent event review email (${type}) to organizer ID: ${organizerId}, email: ${email} for event ID: ${eventId}`,
           );
-        } else {
-          const template = this.emailService.getEmailTemplate('event.rejected', {
-            title,
-            reason,
-          });
-          await this.emailService.sendEmail(
-            email,
-            template.subject,
-            template.text,
-            template.html,
+        } catch (mailErr) {
+          const errorInstance = mailErr instanceof Error ? mailErr : new Error(String(mailErr));
+          this.logger.error(
+            `Failed to send review email (${type}) to organizer ID: ${organizerId}, email: ${email} for event ID: ${eventId}. Error: ${errorInstance.message}`,
+            errorInstance.stack,
           );
         }
-      } catch (mailErr) {
-        this.logger.error(
-          `Failed to send review email (${type}): ${mailErr.message}`,
-        );
       }
     }
 
@@ -1241,36 +1553,69 @@ export class EventsService {
         where: { id: event.organizerId },
       });
 
+      if (!organizer) {
+        throw new NotFoundException(
+          `Organizer record not found for organizer ID: ${event.organizerId}`,
+        );
+      }
+
       return {
         message: 'Event and all associated sessions cancelled immediately.',
         event: savedEvent,
-        emailAction: organizer
-          ? {
-              email: organizer.email || 'organizer@example.com',
-              title: savedEvent.title,
-              reason: `EMERGENCY TERMINATION: ${reason}`,
-            }
-          : null,
+        emailAction: {
+          organizerId: organizer.id,
+          organizerEmail: organizer.email,
+          title: savedEvent.title,
+          reason: `EMERGENCY TERMINATION: ${reason}`,
+        },
       };
     });
 
     await this.invalidateEventCache(eventId);
+    await this.searchSyncQueue.add('delete-event', { eventId });
 
     if (result?.emailAction) {
-      const { email, title, reason: emailReason } = result.emailAction;
-      try {
-        const template = this.emailService.getEmailTemplate('event.rejected', {
-          title,
-          reason: emailReason,
-        });
-        await this.emailService.sendEmail(
-          email,
-          `[CANCELLED] ${template.subject}`,
-          template.text,
-          template.html,
+      const {
+        organizerId,
+        organizerEmail,
+        title,
+        reason: emailReason,
+      } = result.emailAction;
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const isValidEmail =
+        organizerEmail && emailRegex.test(organizerEmail.trim());
+
+      if (!isValidEmail) {
+        this.logger.warn(
+          `Organizer notification skipped. No valid email configured for organizer ID: ${organizerId}. Configured email: "${organizerEmail || ''}"`,
         );
-      } catch (mailErr) {
-        this.logger.error(`Failed to send cancellation notification: ${mailErr.message}`);
+      } else {
+        const email = organizerEmail.trim();
+        try {
+          const template = this.emailService.getEmailTemplate(
+            'event.rejected',
+            {
+              title,
+              reason: emailReason,
+            },
+          );
+          await this.emailService.sendEmail(
+            email,
+            `[CANCELLED] ${template.subject}`,
+            template.text,
+            template.html,
+          );
+          this.logger.log(
+            `Successfully sent event cancellation email to organizer ID: ${organizerId}, email: ${email} for event ID: ${eventId}`,
+          );
+        } catch (mailErr) {
+          const errorInstance = mailErr instanceof Error ? mailErr : new Error(String(mailErr));
+          this.logger.error(
+            `Failed to send cancellation notification to organizer ID: ${organizerId}, email: ${email} for event ID: ${eventId}. Error: ${errorInstance.message}`,
+            errorInstance.stack,
+          );
+        }
       }
     }
 
@@ -1287,5 +1632,15 @@ export class EventsService {
       .replace(/[^\w\s-]/g, '')
       .replace(/[\s_-]+/g, '-')
       .replace(/^-+|-+$/g, '');
+  }
+
+  private escapeHtml(str: string): string {
+    if (!str) return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 }
