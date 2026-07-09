@@ -10,6 +10,7 @@ export interface EventDetailContextValue {
   session: EventSession | undefined
   sessionId: string | undefined
   navigateToStep: (step: EventEditorStep) => void
+  onSessionCreated: (sessionId: string) => void
 }
 
 const EventDetailContext = createContext<EventDetailContextValue | null>(null)

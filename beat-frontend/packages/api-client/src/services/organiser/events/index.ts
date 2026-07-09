@@ -6,6 +6,7 @@ export {
   updateEvent,
   submitEvent,
   createEventSession,
+  deleteEventSession,
   updateEventSession,
 } from './events.api'
 export {
@@ -17,6 +18,7 @@ export {
   useSubmitEvent,
   useCreateEventSession,
   useUpdateEventSession,
+  useDeleteEventSession,
 } from './events.queries'
 export type {
   OrganiserEventsResponse,

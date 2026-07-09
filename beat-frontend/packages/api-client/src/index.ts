@@ -87,6 +87,7 @@ export {
   updateEvent,
   submitEvent,
   createEventSession,
+  deleteEventSession,
   updateEventSession,
   useEvents,
   useOrganiserEvents,
@@ -96,6 +97,7 @@ export {
   useSubmitEvent,
   useCreateEventSession,
   useUpdateEventSession,
+  useDeleteEventSession,
 } from './services/organiser'
 export type {
   OrganiserEventsResponse,

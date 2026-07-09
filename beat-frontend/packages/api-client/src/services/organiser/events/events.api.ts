@@ -194,5 +194,19 @@ export async function updateEventSession(
   }
 }
 
+/**
+ * DELETE /api/v1/events/:eventId/sessions/:sessionId — Soft delete session.
+ */
+export async function deleteEventSession(
+  eventId: string,
+  sessionId: string
+): Promise<void> {
+  try {
+    await apiClient.delete(API_CONSTANTS.EVENT_SESSION(eventId, sessionId))
+  } catch (error) {
+    rethrowWithApiMessage(error)
+  }
+}
+
 /** @deprecated Use `fetchOrganiserEvents` instead. */
 export const getOrganiserEvents = fetchOrganiserEvents

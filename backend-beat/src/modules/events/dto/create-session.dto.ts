@@ -155,28 +155,34 @@ export class CreateEventSessionDto {
 
   @IsArray()
   @IsString({ each: true })
-  categoryIds: string[];
+  @IsOptional()
+  categoryIds?: string[];
 
   @IsString()
   @IsOptional()
   title?: string;
 
   @IsNumber()
-  startAt: number;
+  @IsOptional()
+  startAt?: number;
 
   @IsNumber()
-  endAt: number;
+  @IsOptional()
+  endAt?: number;
 
   @ValidateNested()
   @Type(() => LocationDto)
-  location: LocationDto;
+  @IsOptional()
+  location?: LocationDto;
 
   @ValidateNested()
   @Type(() => EventAddressDto)
-  eventAddress: EventAddressDto;
+  @IsOptional()
+  eventAddress?: EventAddressDto;
 
   @IsNumber()
-  capacity: number;
+  @IsOptional()
+  capacity?: number;
 
   @IsEnum(AgeRestriction)
   @IsOptional()
@@ -197,10 +203,12 @@ export class CreateEventSessionDto {
   mode?: SessionMode;
 
   @IsNumber()
-  ticketSaleStartAt: number;
+  @IsOptional()
+  ticketSaleStartAt?: number;
 
   @IsNumber()
-  ticketSaleEndAt: number;
+  @IsOptional()
+  ticketSaleEndAt?: number;
 
   @IsBoolean()
   @IsOptional()
@@ -231,8 +239,9 @@ export class CreateEventSessionDto {
   @Type(() => ArtistMetadataDto)
   artistMetadata?: ArtistMetadataDto;
 
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateSessionTicketTypeDto)
-  ticketTypes: CreateSessionTicketTypeDto[];
+  ticketTypes?: CreateSessionTicketTypeDto[];
 }

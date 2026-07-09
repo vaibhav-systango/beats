@@ -1,5 +1,6 @@
 import {
   getApiErrorMessage,
+  useCreateEventSession,
   useEventCategories,
   useSubmitEvent,
   useUpdateEventSession,
@@ -14,6 +15,8 @@ import { EVENT_EDITOR_COPY } from '@/constants'
 import { ORGANISER_PATHS } from '@/constants/routes.constants'
 import { getPublicEventUrl } from '@/lib/eventPublicUrl'
 import { buildSessionPatchFormData } from '@/lib/sessionFormData'
+import { upsertSession } from '@/lib/sessionUpsert'
+import { useEventDetailContext } from '@/router/eventDetailContext'
 
 export interface PublishStepProps {
   event: Event
@@ -43,7 +46,9 @@ function ExternalLinkIcon({ className }: { className?: string }) {
 
 export function PublishStep({ event, session, onBack }: PublishStepProps) {
   const navigate = useNavigate()
+  const { onSessionCreated } = useEventDetailContext()
   const submitEvent = useSubmitEvent()
+  const createSession = useCreateEventSession()
   const updateSession = useUpdateEventSession()
   const { data: categoriesResponse } = useEventCategories({ limit: 100, offset: 0 })
 
@@ -61,7 +66,7 @@ export function PublishStep({ event, session, onBack }: PublishStepProps) {
     session?.eventAddress?.city ??
     (session?.mode === 'ONLINE' ? 'Online' : '—')
   const publicEventUrl = event.slug ? getPublicEventUrl(event.slug) : null
-  const isSaving = submitEvent.isPending || updateSession.isPending
+  const isSaving = submitEvent.isPending || createSession.isPending || updateSession.isPending
 
   const handleCategoryChange = (categoryIds: string[]) => {
     setSelectedCategoryIds(categoryIds)
@@ -71,15 +76,14 @@ export function PublishStep({ event, session, onBack }: PublishStepProps) {
   }
 
   const saveCategories = async () => {
-    if (!session?.id) {
-      return
-    }
     const formData = buildSessionPatchFormData({ categoryIds: selectedCategoryIds })
-    await updateSession.mutateAsync({
-      eventId: event.id,
-      sessionId: session.id,
-      formData,
+    const saved = await upsertSession(event.id, session?.id, formData, {
+      create: (args) => createSession.mutateAsync(args),
+      update: (args) => updateSession.mutateAsync(args),
     })
+    if (!session?.id) {
+      onSessionCreated(saved.id)
+    }
   }
 
   const handleSaveDraft = async () => {

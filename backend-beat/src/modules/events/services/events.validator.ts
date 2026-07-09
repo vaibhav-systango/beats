@@ -28,20 +28,12 @@ export class EventValidator {
     }
 
     // 2. Capacity Guardrails: Sum of ticket type capacities <= session capacity
-    if (!isUpdate) {
-      if (!session.ticketTypes || session.ticketTypes.length === 0) {
-        throw new BadRequestException(
-          `At least one pricing tier (ticket type) is required for the session.`,
-        );
-      }
-    }
-
     if (session.ticketTypes && session.ticketTypes.length > 0) {
       const totalTicketsQuantity = session.ticketTypes.reduce(
         (sum, t) => sum + t.quantity,
         0,
       );
-      if (totalTicketsQuantity > session.capacity) {
+      if (totalTicketsQuantity > (session.capacity ?? 0)) {
         throw new BadRequestException(
           `Sum of all ticket type quantities (${totalTicketsQuantity}) exceeds the parent session's capacity constraint (${session.capacity}).`,
         );

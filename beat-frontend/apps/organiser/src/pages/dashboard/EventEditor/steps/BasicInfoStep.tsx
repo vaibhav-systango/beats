@@ -1,4 +1,4 @@
-import { useUpdateEventSession } from '@beat/api-client'
+import { useCreateEventSession, useUpdateEventSession } from '@beat/api-client'
 import type { Event, EventSession, LocationType, SessionLocation, UpdateSessionInput } from '@beat/types'
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -17,6 +17,8 @@ import {
   epochToDatetimeLocal,
   hasSessionPatchPayload,
 } from '@/lib/sessionFormData'
+import { upsertSession } from '@/lib/sessionUpsert'
+import { useEventDetailContext } from '@/router/eventDetailContext'
 
 export interface BasicInfoStepProps {
   event: Event
@@ -40,10 +42,12 @@ const noop = () => {}
 
 export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
   const location = useLocation()
+  const { onSessionCreated } = useEventDetailContext()
   const initialLocationType =
     (location.state as { locationType?: LocationType } | null)?.locationType ??
     'VENUE'
 
+  const createSession = useCreateEventSession()
   const updateSession = useUpdateEventSession()
 
   const [title, setTitle] = useState(event.title)
@@ -144,21 +148,18 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
   const handleSaveAndNext = async () => {
     setError(null)
 
-    if (!session?.id) {
-      setError('No session found for this event.')
-      return
-    }
-
     const sessionPatch = buildSessionPatch()
 
     try {
       if (hasSessionPatchPayload(sessionPatch)) {
         const formData = buildSessionPatchFormData(sessionPatch)
-        await updateSession.mutateAsync({
-          eventId: event.id,
-          sessionId: session.id,
-          formData,
+        const saved = await upsertSession(event.id, session?.id, formData, {
+          create: (args) => createSession.mutateAsync(args),
+          update: (args) => updateSession.mutateAsync(args),
         })
+        if (!session?.id) {
+          onSessionCreated(saved.id)
+        }
       }
 
       onNext()
@@ -215,7 +216,7 @@ export function BasicInfoStep({ event, session, onNext }: BasicInfoStepProps) {
       onDescriptionChange={setDescription}
       onDescriptionBlur={noop}
       error={error}
-      isSaving={updateSession.isPending}
+      isSaving={createSession.isPending || updateSession.isPending}
       nextLabel={EVENT_EDITOR_COPY.NEXT}
       onSaveAndNext={() => void handleSaveAndNext()}
     />
