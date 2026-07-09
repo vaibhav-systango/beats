@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DataSource, Repository, IsNull } from 'typeorm';
 import { Event, EventStatus, StatusLogEntry } from '../entities/event.entity';
 
-export interface PendingApprovalEventRow {
+export interface AdminEventListRow {
   id: string;
   title: string;
   status: EventStatus;
@@ -11,6 +11,9 @@ export interface PendingApprovalEventRow {
   organizerFullName: string | null;
   organizerEmail: string | null;
 }
+
+/** @deprecated Use AdminEventListRow */
+export type PendingApprovalEventRow = AdminEventListRow;
 
 @Injectable()
 export class EventRepository extends Repository<Event> {
@@ -84,13 +87,33 @@ export class EventRepository extends Repository<Event> {
   }
 
   async countPendingApprovalEvents(): Promise<number> {
+    return this.countAdminEventsByStatuses([EventStatus.PENDING_APPROVAL]);
+  }
+
+  async findPendingApprovalEvents(page: number, limit: number): Promise<AdminEventListRow[]> {
+    return this.findAdminEventsByStatuses([EventStatus.PENDING_APPROVAL], page, limit);
+  }
+
+  async countAdminEventsByStatuses(statuses: EventStatus[]): Promise<number> {
+    if (statuses.length === 0) {
+      return 0;
+    }
+
     return this.createQueryBuilder('event')
-      .where('event.status = :status', { status: EventStatus.PENDING_APPROVAL })
+      .where('event.status IN (:...statuses)', { statuses })
       .andWhere('event.deleted_at IS NULL')
       .getCount();
   }
 
-  async findPendingApprovalEvents(page: number, limit: number): Promise<PendingApprovalEventRow[]> {
+  async findAdminEventsByStatuses(
+    statuses: EventStatus[],
+    page: number,
+    limit: number,
+  ): Promise<AdminEventListRow[]> {
+    if (statuses.length === 0) {
+      return [];
+    }
+
     const offset = (page - 1) * limit;
 
     return this.createQueryBuilder('event')
@@ -102,12 +125,12 @@ export class EventRepository extends Repository<Event> {
       .addSelect('event.updated_at', 'updatedAt')
       .addSelect('organizer."fullName"', 'organizerFullName')
       .addSelect('organizer.email', 'organizerEmail')
-      .where('event.status = :status', { status: EventStatus.PENDING_APPROVAL })
+      .where('event.status IN (:...statuses)', { statuses })
       .andWhere('event.deleted_at IS NULL')
       .orderBy('event.updated_at', 'DESC')
       .offset(offset)
       .limit(limit)
-      .getRawMany<PendingApprovalEventRow>();
+      .getRawMany<AdminEventListRow>();
   }
 
   async findFirstSessionStartAtByEventIds(

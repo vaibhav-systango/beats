@@ -1,19 +1,26 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import {
+  getApiErrorMessage,
+  useAdminEvents,
+  useReviewEvent,
+} from '@beat/api-client'
+import type { AdminEventsTab } from '@beat/types'
+import { Button } from '@beat/ui'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import {
   ActionFeedbackBanner,
   DashboardPage,
   DashboardPageHeader,
   DashboardPageSection,
+  EventListTabs,
   EventModerationTable,
   RejectEventDialog,
 } from '@/components'
 import { ADMIN_EVENTS_COPY } from '@/constants/events.constants'
-import { mockEventActionDelay } from '@/lib/mock-event-actions'
-import { useMockPendingEventsStore } from '@/store'
 
 const FEEDBACK_DISMISS_MS = 4_000
+const VALID_TABS: AdminEventsTab[] = ['pending', 'accepted', 'rejected']
 
 type ActionFeedback = {
   message: string
@@ -24,20 +31,65 @@ type EventsLocationState = {
   feedback?: ActionFeedback
 }
 
+function parseTabParam(value: string | null): AdminEventsTab {
+  if (value && VALID_TABS.includes(value as AdminEventsTab)) {
+    return value as AdminEventsTab
+  }
+
+  return 'pending'
+}
+
+function emptyMessageForTab(tab: AdminEventsTab): string {
+  switch (tab) {
+    case 'pending':
+      return ADMIN_EVENTS_COPY.TABLE_EMPTY_PENDING
+    case 'accepted':
+      return ADMIN_EVENTS_COPY.TABLE_EMPTY_ACCEPTED
+    case 'rejected':
+      return ADMIN_EVENTS_COPY.TABLE_EMPTY_REJECTED
+  }
+}
+
 export function EventList() {
   const navigate = useNavigate()
   const location = useLocation()
-  const events = useMockPendingEventsStore((state) => state.events)
-  const removeEvent = useMockPendingEventsStore((state) => state.removeEvent)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = parseTabParam(searchParams.get('tab'))
+  const { data, isLoading, isError, error, refetch } = useAdminEvents(activeTab)
+  const reviewMutation = useReviewEvent()
   const [rejectTarget, setRejectTarget] = useState<{
     id: string
     title: string
   } | null>(null)
-  const [loadingEventId, setLoadingEventId] = useState<string | null>(null)
-  const [isRejectSubmitting, setIsRejectSubmitting] = useState(false)
   const [feedback, setFeedback] = useState<ActionFeedback | null>(null)
 
-  const isActionLoading = loadingEventId !== null || isRejectSubmitting
+  const events = data?.data ?? []
+  const showActions = activeTab === 'pending'
+  const loadingEventId =
+    showActions && reviewMutation.isPending
+      ? (reviewMutation.variables?.eventId ?? null)
+      : null
+  const isRejectSubmitting =
+    reviewMutation.isPending && reviewMutation.variables?.input.action === 'REJECT'
+
+  const handleTabChange = useCallback(
+    (tab: AdminEventsTab) => {
+      setRejectTarget(null)
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current)
+          if (tab === 'pending') {
+            next.delete('tab')
+          } else {
+            next.set('tab', tab)
+          }
+          return next
+        },
+        { replace: true }
+      )
+    },
+    [setSearchParams]
+  )
 
   useEffect(() => {
     const state = location.state as EventsLocationState | null
@@ -46,8 +98,8 @@ export function EventList() {
     }
 
     setFeedback(state.feedback)
-    navigate(location.pathname, { replace: true, state: null })
-  }, [location.pathname, location.state, navigate])
+    navigate(location.pathname + location.search, { replace: true, state: null })
+  }, [location.pathname, location.search, location.state, navigate])
 
   useEffect(() => {
     if (!feedback) {
@@ -59,59 +111,57 @@ export function EventList() {
   }, [feedback])
 
   const handleApprove = async (id: string) => {
-    if (isActionLoading) {
+    if (!showActions || reviewMutation.isPending) {
       return
     }
 
-    setLoadingEventId(id)
     setFeedback(null)
 
     try {
-      await mockEventActionDelay()
-      removeEvent(id)
+      await reviewMutation.mutateAsync({
+        eventId: id,
+        input: { action: 'APPROVE' },
+      })
       setFeedback({
         message: ADMIN_EVENTS_COPY.APPROVE_SUCCESS,
         variant: 'success',
       })
-    } catch {
+    } catch (mutationError) {
       setFeedback({
-        message: ADMIN_EVENTS_COPY.ACTION_ERROR,
+        message: getApiErrorMessage(mutationError) ?? ADMIN_EVENTS_COPY.ACTION_ERROR,
         variant: 'error',
       })
-    } finally {
-      setLoadingEventId(null)
     }
   }
 
-  const handleRejectConfirm = async (_reason: string) => {
-    if (!rejectTarget || isRejectSubmitting) {
+  const handleRejectConfirm = async (reason: string) => {
+    if (!showActions || !rejectTarget || reviewMutation.isPending) {
       return
     }
 
-    setIsRejectSubmitting(true)
     setFeedback(null)
 
     try {
-      await mockEventActionDelay()
-      removeEvent(rejectTarget.id)
+      await reviewMutation.mutateAsync({
+        eventId: rejectTarget.id,
+        input: { action: 'REJECT', reason },
+      })
       setRejectTarget(null)
       setFeedback({
         message: ADMIN_EVENTS_COPY.REJECT_SUCCESS,
         variant: 'success',
       })
-    } catch {
+    } catch (mutationError) {
       setFeedback({
-        message: ADMIN_EVENTS_COPY.ACTION_ERROR,
+        message: getApiErrorMessage(mutationError) ?? ADMIN_EVENTS_COPY.ACTION_ERROR,
         variant: 'error',
       })
-    } finally {
-      setIsRejectSubmitting(false)
     }
   }
 
   const handleRejectOpen = useCallback(
     (id: string) => {
-      if (isActionLoading) {
+      if (!showActions || reviewMutation.isPending) {
         return
       }
 
@@ -120,15 +170,60 @@ export function EventList() {
         setRejectTarget({ id: event.id, title: event.title })
       }
     },
-    [events, isActionLoading]
+    [events, reviewMutation.isPending, showActions]
   )
+
+  const listDescription = useMemo(() => {
+    switch (activeTab) {
+      case 'pending':
+        return ADMIN_EVENTS_COPY.LIST_DESCRIPTION
+      case 'accepted':
+        return ADMIN_EVENTS_COPY.LIST_DESCRIPTION_ACCEPTED
+      case 'rejected':
+        return ADMIN_EVENTS_COPY.LIST_DESCRIPTION_REJECTED
+    }
+  }, [activeTab])
+
+  if (isLoading) {
+    return (
+      <DashboardPage>
+        <DashboardPageHeader
+          title={ADMIN_EVENTS_COPY.LIST_TITLE}
+          description={listDescription}
+        />
+        <EventListTabs activeTab={activeTab} onTabChange={handleTabChange} />
+        <p className="text-sm text-muted-foreground">{ADMIN_EVENTS_COPY.LIST_LOADING}</p>
+      </DashboardPage>
+    )
+  }
+
+  if (isError) {
+    return (
+      <DashboardPage>
+        <DashboardPageHeader
+          title={ADMIN_EVENTS_COPY.LIST_TITLE}
+          description={listDescription}
+        />
+        <EventListTabs activeTab={activeTab} onTabChange={handleTabChange} />
+        <div className="space-y-3">
+          <p className="text-sm text-destructive">
+            {error?.message ?? ADMIN_EVENTS_COPY.LIST_ERROR}
+          </p>
+          <Button type="button" size="sm" variant="outline" onClick={() => void refetch()}>
+            {ADMIN_EVENTS_COPY.LIST_RETRY}
+          </Button>
+        </div>
+      </DashboardPage>
+    )
+  }
 
   return (
     <DashboardPage>
       <DashboardPageHeader
         title={ADMIN_EVENTS_COPY.LIST_TITLE}
-        description={ADMIN_EVENTS_COPY.LIST_DESCRIPTION}
+        description={listDescription}
       />
+      <EventListTabs activeTab={activeTab} onTabChange={handleTabChange} />
       {feedback ? (
         <ActionFeedbackBanner
           message={feedback.message}
@@ -141,21 +236,25 @@ export function EventList() {
           events={events}
           onApprove={handleApprove}
           onReject={handleRejectOpen}
-          isActionLoading={isActionLoading}
+          isActionLoading={reviewMutation.isPending}
           loadingEventId={loadingEventId}
+          showActions={showActions}
+          emptyMessage={emptyMessageForTab(activeTab)}
         />
       </DashboardPageSection>
-      <RejectEventDialog
-        open={rejectTarget !== null}
-        eventTitle={rejectTarget?.title ?? ''}
-        isLoading={isRejectSubmitting}
-        onCancel={() => {
-          if (!isRejectSubmitting) {
-            setRejectTarget(null)
-          }
-        }}
-        onConfirm={handleRejectConfirm}
-      />
+      {showActions ? (
+        <RejectEventDialog
+          open={rejectTarget !== null}
+          eventTitle={rejectTarget?.title ?? ''}
+          isLoading={isRejectSubmitting}
+          onCancel={() => {
+            if (!isRejectSubmitting) {
+              setRejectTarget(null)
+            }
+          }}
+          onConfirm={handleRejectConfirm}
+        />
+      ) : null}
     </DashboardPage>
   )
 }

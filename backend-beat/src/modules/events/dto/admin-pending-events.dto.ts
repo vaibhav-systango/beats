@@ -1,7 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { EventStatus } from '../../../database/entities/event.entity';
+
+/**
+ * Admin list filter values. `ACCEPTED` matches events with status PUBLISHED or APPROVED.
+ */
+export enum AdminEventsListFilter {
+  PENDING_APPROVAL = EventStatus.PENDING_APPROVAL,
+  PUBLISHED = EventStatus.PUBLISHED,
+  REJECTED = EventStatus.REJECTED,
+  APPROVED = EventStatus.APPROVED,
+  ACCEPTED = 'ACCEPTED',
+}
 
 export class AdminPendingEventsQueryDto {
   @ApiPropertyOptional({ example: 1, description: 'Page number (default: 1)' })
@@ -18,6 +29,17 @@ export class AdminPendingEventsQueryDto {
   @Min(1)
   @Max(100)
   limit: number = 20;
+}
+
+export class AdminEventsQueryDto extends AdminPendingEventsQueryDto {
+  @ApiProperty({
+    enum: AdminEventsListFilter,
+    example: AdminEventsListFilter.PENDING_APPROVAL,
+    description:
+      'Filter by review status. ACCEPTED returns PUBLISHED and APPROVED events.',
+  })
+  @IsEnum(AdminEventsListFilter)
+  status: AdminEventsListFilter;
 }
 
 export class AdminPendingEventDto {

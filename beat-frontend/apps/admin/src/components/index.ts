@@ -1,6 +1,8 @@
 export { ActionFeedbackBanner } from './ActionFeedbackBanner'
 export type { ActionFeedbackBannerProps } from './ActionFeedbackBanner'
 export { DashboardTopBar } from './DashboardTopBar'
+export { EventListTabs } from './EventListTabs'
+export type { EventListTabsProps } from './EventListTabs'
 export { EventModerationTable } from './EventModerationTable'
 export type { EventModerationTableProps } from './EventModerationTable'
 export { RejectEventDialog } from './RejectEventDialog'

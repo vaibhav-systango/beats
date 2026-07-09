@@ -103,3 +103,25 @@ export type {
   UseOrganiserEventsParams,
   SubmitEventResult,
 } from './services/organiser'
+
+export {
+  fetchAdminEvents,
+  fetchAdminPendingEvents,
+  fetchAdminEventDetails,
+  reviewEvent,
+  useAdminEvents,
+  useAdminPendingEvents,
+  useAdminEventDetails,
+  useReviewEvent,
+} from './services/admin'
+export type {
+  UseAdminPendingEventsParams,
+  ReviewEventResponse,
+  ReviewEventMutationInput,
+} from './services/admin'
+export type {
+  AdminEventsTab,
+  AdminEventsListFilter,
+  AdminEventsListParams,
+  adminEventsTabToStatusFilter,
+} from '@beat/types'

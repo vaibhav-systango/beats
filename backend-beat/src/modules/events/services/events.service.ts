@@ -29,6 +29,7 @@ import { CreateEventDto, LocationDto, EventAddressDto } from '../dto/create-even
 import { UpdateEventDto } from '../dto/update-event.dto';
 import { CreateEventSessionDto } from '../dto/create-session.dto';
 import { ReviewEventDto, ReviewAction } from '../dto/review-event.dto';
+import { AdminEventsListFilter } from '../dto/admin-pending-events.dto';
 import { CacheService } from '../../../providers/cache/cache.service';
 import { EventRepository } from '../../../database/repositories/event.repository';
 import { EventSessionRepository } from '../../../database/repositories/event-session.repository';
@@ -1073,12 +1074,18 @@ export class EventsService {
   }
 
   /**
-   * Paginated list of events awaiting admin approval.
+   * Paginated list of admin events filtered by review status.
+   * ACCEPTED maps to PUBLISHED and APPROVED rows.
    */
-  async getAdminPendingEvents(page: number, limit: number) {
+  async getAdminEventsByStatus(
+    statusFilter: AdminEventsListFilter,
+    page: number,
+    limit: number,
+  ) {
+    const statuses = this.resolveAdminListStatuses(statusFilter);
     const [total, rows] = await Promise.all([
-      this.eventRepository.countPendingApprovalEvents(),
-      this.eventRepository.findPendingApprovalEvents(page, limit),
+      this.eventRepository.countAdminEventsByStatuses(statuses),
+      this.eventRepository.findAdminEventsByStatuses(statuses, page, limit),
     ]);
 
     const eventIds = rows.map((row) => row.id);
@@ -1103,6 +1110,34 @@ export class EventsService {
         limit,
       },
     };
+  }
+
+  /**
+   * @deprecated Use getAdminEventsByStatus(AdminEventsListFilter.PENDING_APPROVAL, ...)
+   */
+  async getAdminPendingEvents(page: number, limit: number) {
+    return this.getAdminEventsByStatus(
+      AdminEventsListFilter.PENDING_APPROVAL,
+      page,
+      limit,
+    );
+  }
+
+  private resolveAdminListStatuses(statusFilter: AdminEventsListFilter): EventStatus[] {
+    switch (statusFilter) {
+      case AdminEventsListFilter.ACCEPTED:
+        return [EventStatus.PUBLISHED, EventStatus.APPROVED];
+      case AdminEventsListFilter.PENDING_APPROVAL:
+        return [EventStatus.PENDING_APPROVAL];
+      case AdminEventsListFilter.PUBLISHED:
+        return [EventStatus.PUBLISHED];
+      case AdminEventsListFilter.REJECTED:
+        return [EventStatus.REJECTED];
+      case AdminEventsListFilter.APPROVED:
+        return [EventStatus.APPROVED];
+      default:
+        return [EventStatus.PENDING_APPROVAL];
+    }
   }
 
   private resolveOrganiserDisplayName(

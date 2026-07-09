@@ -1,6 +1,12 @@
+import {
+  getApiErrorMessage,
+  useAdminEventDetails,
+  useAdminPendingEvents,
+  useReviewEvent,
+} from '@beat/api-client'
 import { Button } from '@beat/ui'
 import { formatEventDateTime } from '@beat/utils'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import {
@@ -12,9 +18,13 @@ import {
 } from '@/components'
 import { ADMIN_EVENTS_COPY } from '@/constants/events.constants'
 import { ADMIN_PATHS } from '@/constants/routes.constants'
-import { mockEventActionDelay } from '@/lib/mock-event-actions'
-import type { AdminEventDetail, AdminEventLocationType, AdminEventSession } from '@/mocks/admin-event.types'
-import { useMockPendingEventsStore } from '@/store'
+import type {
+  AdminEventDetail,
+  AdminEventLocationType,
+  AdminEventSession,
+} from '@/lib/admin-event-view.types'
+import { formatAdminEventStatus } from '@/lib/format-event-status'
+import { mapEventDetails } from '@/lib/map-event-details'
 
 type ActionFeedback = {
   message: string
@@ -149,7 +159,7 @@ function EventDetailContent({ event }: { event: AdminEventDetail }) {
           <DetailField label={ADMIN_EVENTS_COPY.DETAIL_ORGANISER_LABEL} value={event.organiserName} />
           <DetailField
             label={ADMIN_EVENTS_COPY.DETAIL_STATUS_LABEL}
-            value={ADMIN_EVENTS_COPY.STATUS_PENDING_APPROVAL}
+            value={formatAdminEventStatus(event.status)}
           />
           <DetailField
             label={ADMIN_EVENTS_COPY.DETAIL_SUBMITTED_LABEL}
@@ -169,9 +179,13 @@ function EventDetailContent({ event }: { event: AdminEventDetail }) {
         <h2 className="border-b border-border px-4 py-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground sm:px-6">
           {ADMIN_EVENTS_COPY.DETAIL_SESSIONS_TITLE}
         </h2>
-        {event.sessions.map((session) => (
-          <SessionCard key={session.id} session={session} />
-        ))}
+        {event.sessions.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground sm:px-6">
+            {ADMIN_EVENTS_COPY.DETAIL_NO_SESSIONS}
+          </p>
+        ) : (
+          event.sessions.map((session) => <SessionCard key={session.id} session={session} />)
+        )}
       </DashboardPageSection>
     </div>
   )
@@ -180,72 +194,101 @@ function EventDetailContent({ event }: { event: AdminEventDetail }) {
 export function EventDetail() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  const getPendingEventDetail = useMockPendingEventsStore((state) => state.getPendingEventDetail)
-  const removeEvent = useMockPendingEventsStore((state) => state.removeEvent)
-  const event = id ? getPendingEventDetail(id) : undefined
+  const {
+    data: eventData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useAdminEventDetails(id)
+  const { data: pendingData } = useAdminPendingEvents()
+  const reviewMutation = useReviewEvent()
 
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
-  const [isApproving, setIsApproving] = useState(false)
-  const [isRejectSubmitting, setIsRejectSubmitting] = useState(false)
   const [actionFeedback, setActionFeedback] = useState<ActionFeedback | null>(null)
 
-  const isActionLoading = isApproving || isRejectSubmitting
-  const hasActed = actionFeedback !== null
+  const organiserName = useMemo(
+    () => pendingData?.data.find((item) => item.id === id)?.organiserName,
+    [id, pendingData]
+  )
+
+  const event = useMemo(
+    () => (eventData ? mapEventDetails(eventData, organiserName) : undefined),
+    [eventData, organiserName]
+  )
+
+  const isActionLoading = reviewMutation.isPending
+  const isRejectSubmitting =
+    reviewMutation.isPending && reviewMutation.variables?.input.action === 'REJECT'
+  const canReview = event?.status === 'PENDING_APPROVAL'
 
   const navigateToListWithFeedback = (feedback: ActionFeedback) => {
     navigate(ADMIN_PATHS.EVENTS, { state: { feedback } })
   }
 
   const handleApprove = async () => {
-    if (!event || isActionLoading || hasActed) {
+    if (!event || !id || isActionLoading || !canReview) {
       return
     }
 
-    setIsApproving(true)
     setActionFeedback(null)
 
     try {
-      await mockEventActionDelay()
-      removeEvent(event.id)
+      await reviewMutation.mutateAsync({
+        eventId: id,
+        input: { action: 'APPROVE' },
+      })
       navigateToListWithFeedback({
         message: ADMIN_EVENTS_COPY.APPROVE_SUCCESS,
         variant: 'success',
       })
-    } catch {
+    } catch (mutationError) {
       setActionFeedback({
-        message: ADMIN_EVENTS_COPY.ACTION_ERROR,
+        message: getApiErrorMessage(mutationError) ?? ADMIN_EVENTS_COPY.ACTION_ERROR,
         variant: 'error',
       })
-      setIsApproving(false)
     }
   }
 
-  const handleRejectConfirm = async (_reason: string) => {
-    if (!event || isRejectSubmitting || hasActed) {
+  const handleRejectConfirm = async (reason: string) => {
+    if (!event || !id || isActionLoading || !canReview) {
       return
     }
 
-    setIsRejectSubmitting(true)
     setActionFeedback(null)
 
     try {
-      await mockEventActionDelay()
-      removeEvent(event.id)
+      await reviewMutation.mutateAsync({
+        eventId: id,
+        input: { action: 'REJECT', reason },
+      })
       setIsRejectDialogOpen(false)
       navigateToListWithFeedback({
         message: ADMIN_EVENTS_COPY.REJECT_SUCCESS,
         variant: 'success',
       })
-    } catch {
+    } catch (mutationError) {
       setActionFeedback({
-        message: ADMIN_EVENTS_COPY.ACTION_ERROR,
+        message: getApiErrorMessage(mutationError) ?? ADMIN_EVENTS_COPY.ACTION_ERROR,
         variant: 'error',
       })
-      setIsRejectSubmitting(false)
     }
   }
 
-  if (!event) {
+  if (isLoading) {
+    return (
+      <DashboardPage width="content">
+        <DashboardPageHeader
+          title={ADMIN_EVENTS_COPY.LIST_TITLE}
+          backTo={ADMIN_PATHS.EVENTS}
+          backLabel={ADMIN_EVENTS_COPY.BACK_TO_EVENTS}
+        />
+        <p className="text-sm text-muted-foreground">{ADMIN_EVENTS_COPY.DETAIL_LOADING}</p>
+      </DashboardPage>
+    )
+  }
+
+  if (isError || !event) {
     return (
       <DashboardPage width="content">
         <DashboardPageHeader
@@ -254,6 +297,16 @@ export function EventDetail() {
           backTo={ADMIN_PATHS.EVENTS}
           backLabel={ADMIN_EVENTS_COPY.BACK_TO_EVENTS}
         />
+        {isError ? (
+          <div className="space-y-3">
+            <p className="text-sm text-destructive">
+              {error?.message ?? ADMIN_EVENTS_COPY.DETAIL_ERROR}
+            </p>
+            <Button type="button" size="sm" variant="outline" onClick={() => void refetch()}>
+              {ADMIN_EVENTS_COPY.DETAIL_RETRY}
+            </Button>
+          </div>
+        ) : null}
       </DashboardPage>
     )
   }
@@ -266,26 +319,28 @@ export function EventDetail() {
         backTo={ADMIN_PATHS.EVENTS}
         backLabel={ADMIN_EVENTS_COPY.BACK_TO_EVENTS}
         actions={
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              disabled={isActionLoading || hasActed}
-              onClick={handleApprove}
-            >
-              {ADMIN_EVENTS_COPY.APPROVE_ACTION}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
-              disabled={isActionLoading || hasActed}
-              onClick={() => setIsRejectDialogOpen(true)}
-            >
-              {ADMIN_EVENTS_COPY.REJECT_ACTION}
-            </Button>
-          </div>
+          canReview ? (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                disabled={isActionLoading}
+                onClick={() => void handleApprove()}
+              >
+                {ADMIN_EVENTS_COPY.APPROVE_ACTION}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                disabled={isActionLoading}
+                onClick={() => setIsRejectDialogOpen(true)}
+              >
+                {ADMIN_EVENTS_COPY.REJECT_ACTION}
+              </Button>
+            </div>
+          ) : null
         }
       />
       {actionFeedback ? (
@@ -297,7 +352,7 @@ export function EventDetail() {
       ) : null}
       <EventDetailContent event={event} />
       <RejectEventDialog
-        open={isRejectDialogOpen}
+        open={isRejectDialogOpen && canReview}
         eventTitle={event.title}
         isLoading={isRejectSubmitting}
         onCancel={() => {

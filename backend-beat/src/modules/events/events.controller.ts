@@ -32,7 +32,11 @@ import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { CreateEventSessionDto } from './dto/create-session.dto';
 import { ReviewEventDto } from './dto/review-event.dto';
-import { AdminPendingEventsQueryDto } from './dto/admin-pending-events.dto';
+import {
+  AdminEventsListFilter,
+  AdminEventsQueryDto,
+  AdminPendingEventsQueryDto,
+} from './dto/admin-pending-events.dto';
 import { EventMessages, EventConstants } from './constants/events.constants';
 import { EventsHelper } from './helpers/events.helper';
 import { ReviewEventSwagger } from './decorators/swagger/review-event.decorator';
@@ -48,6 +52,7 @@ import { GetOrganizerEventsSwagger } from './decorators/swagger/get-organizer-ev
 import { GetPublicDiscoverySwagger } from './decorators/swagger/get-public-discovery.decorator';
 import { GetEventDetailsSwagger } from './decorators/swagger/get-event-details.decorator';
 import { GetAdminPendingEventsSwagger } from './decorators/swagger/get-admin-pending-events.decorator';
+import { GetAdminEventsSwagger } from './decorators/swagger/get-admin-events.decorator';
 import { GetSuggestionsSwagger } from './decorators/swagger/get-suggestions.decorator';
 import { GetTrendingSearchesSwagger } from './decorators/swagger/get-trending-searches.decorator';
 import {
@@ -452,6 +457,38 @@ export class EventsController {
   }
 
   /**
+   * Admin lists events filtered by review status.
+   */
+  @Get('admin/events')
+  @UseGuards(JwtAuthGuard)
+  @GetAdminEventsSwagger()
+  async getAdminEvents(
+    @Query() query: AdminEventsQueryDto,
+    @Request() req: any,
+  ) {
+    try {
+      const user = req.user;
+      if (user.role !== UserRole.ADMIN) {
+        throw new ForbiddenException(EventMessages.ADMIN_ONLY_VIEW_PENDING);
+      }
+
+      return await this.eventsService.getAdminEventsByStatus(
+        query.status,
+        query.page,
+        query.limit,
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Error occurred in fetching admin events: ', error);
+      throw new InternalServerErrorException({
+        message: EventMessages.UNEXPECTED_ERROR,
+      });
+    }
+  }
+
+  /**
    * Admin lists events pending approval.
    */
   @Get('admin/pending')
@@ -467,7 +504,11 @@ export class EventsController {
         throw new ForbiddenException(EventMessages.ADMIN_ONLY_VIEW_PENDING);
       }
 
-      return await this.eventsService.getAdminPendingEvents(query.page, query.limit);
+      return await this.eventsService.getAdminEventsByStatus(
+        AdminEventsListFilter.PENDING_APPROVAL,
+        query.page,
+        query.limit,
+      );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
