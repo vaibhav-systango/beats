@@ -11,7 +11,7 @@ import { ulid } from 'ulid';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SearchService } from '../../search/services/search.service';
-import { Event, EventStatus } from '../../../database/entities/event.entity';
+import { Event, EventStatus, StatusLogEntry } from '../../../database/entities/event.entity';
 import { User } from '../../../database/entities/user.entity';
 import {
   EventSession,
@@ -1070,6 +1070,65 @@ export class EventsService {
    */
   async getOrganizerEvents(organizerId: string) {
     return await this.eventRepository.findOrganizerEvents(organizerId);
+  }
+
+  /**
+   * Paginated list of events awaiting admin approval.
+   */
+  async getAdminPendingEvents(page: number, limit: number) {
+    const [total, rows] = await Promise.all([
+      this.eventRepository.countPendingApprovalEvents(),
+      this.eventRepository.findPendingApprovalEvents(page, limit),
+    ]);
+
+    const eventIds = rows.map((row) => row.id);
+    const startAtByEventId =
+      await this.eventRepository.findFirstSessionStartAtByEventIds(eventIds);
+
+    return {
+      data: rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        status: row.status,
+        organiserName: this.resolveOrganiserDisplayName(
+          row.organizerFullName,
+          row.organizerEmail,
+        ),
+        startAt: startAtByEventId.get(row.id) ?? null,
+        submittedAt: this.resolveSubmittedAt(row.statusLog, row.updatedAt),
+      })),
+      pagination: {
+        total,
+        page,
+        limit,
+      },
+    };
+  }
+
+  private resolveOrganiserDisplayName(
+    fullName: string | null,
+    email: string | null,
+  ): string {
+    if (fullName?.trim()) {
+      return fullName.trim();
+    }
+    if (email?.trim()) {
+      return email.trim();
+    }
+    return '';
+  }
+
+  private resolveSubmittedAt(
+    statusLog: StatusLogEntry[] | null | undefined,
+    updatedAt: number,
+  ): number {
+    if (Array.isArray(statusLog)) {
+      const submittedEntries = statusLog.filter((entry) => entry.action === 'SUBMITTED');
+      if (submittedEntries.length > 0) {
+        return submittedEntries[submittedEntries.length - 1].timestamp;
+      }
+    }
+    return updatedAt;
   }
 
   private async buildEventDetailsHtml(eventId: string): Promise<string> {

@@ -1,6 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource, Repository, IsNull } from 'typeorm';
-import { Event, EventStatus } from '../entities/event.entity';
+import { Event, EventStatus, StatusLogEntry } from '../entities/event.entity';
+
+export interface PendingApprovalEventRow {
+  id: string;
+  title: string;
+  status: EventStatus;
+  statusLog: StatusLogEntry[];
+  updatedAt: number;
+  organizerFullName: string | null;
+  organizerEmail: string | null;
+}
 
 @Injectable()
 export class EventRepository extends Repository<Event> {
@@ -71,5 +81,61 @@ export class EventRepository extends Repository<Event> {
       where: { organizerId, deletedAt: IsNull() },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async countPendingApprovalEvents(): Promise<number> {
+    return this.createQueryBuilder('event')
+      .where('event.status = :status', { status: EventStatus.PENDING_APPROVAL })
+      .andWhere('event.deleted_at IS NULL')
+      .getCount();
+  }
+
+  async findPendingApprovalEvents(page: number, limit: number): Promise<PendingApprovalEventRow[]> {
+    const offset = (page - 1) * limit;
+
+    return this.createQueryBuilder('event')
+      .innerJoin('users', 'organizer', 'organizer.id = event.organizer_id')
+      .select('event.id', 'id')
+      .addSelect('event.title', 'title')
+      .addSelect('event.status', 'status')
+      .addSelect('event.status_log', 'statusLog')
+      .addSelect('event.updated_at', 'updatedAt')
+      .addSelect('organizer."fullName"', 'organizerFullName')
+      .addSelect('organizer.email', 'organizerEmail')
+      .where('event.status = :status', { status: EventStatus.PENDING_APPROVAL })
+      .andWhere('event.deleted_at IS NULL')
+      .orderBy('event.updated_at', 'DESC')
+      .offset(offset)
+      .limit(limit)
+      .getRawMany<PendingApprovalEventRow>();
+  }
+
+  async findFirstSessionStartAtByEventIds(
+    eventIds: string[],
+  ): Promise<Map<string, number | null>> {
+    const startAtByEventId = new Map<string, number | null>(
+      eventIds.map((id) => [id, null]),
+    );
+
+    if (eventIds.length === 0) {
+      return startAtByEventId;
+    }
+
+    const rows: { event_id: string; start_at: string }[] = await this.manager.query(
+      `
+        SELECT DISTINCT ON (event_id) event_id, start_at
+        FROM event_sessions
+        WHERE deleted_at IS NULL
+          AND event_id = ANY($1::char(26)[])
+        ORDER BY event_id, priority_weight DESC NULLS LAST, start_at ASC
+      `,
+      [eventIds],
+    );
+
+    for (const row of rows) {
+      startAtByEventId.set(row.event_id, Number(row.start_at));
+    }
+
+    return startAtByEventId;
   }
 }
