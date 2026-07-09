@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
+import { ConfigService } from '@nestjs/config';
 import { OpenSearchClientProvider, RedisClientProvider } from './search.provider';
 import { SearchController } from './search.controller';
 import { SearchService } from './services/search.service';
+import { OpenSearchSearchService } from './services/opensearch-search.service';
+import { DatabaseSearchService } from './services/database-search.service';
 import { SearchSyncProcessor } from './processors/search-sync.processor';
 import { SearchAnalyticsProcessor } from './processors/search-analytics.processor';
 
@@ -18,7 +21,20 @@ import { SearchAnalyticsProcessor } from './processors/search-analytics.processo
   providers: [
     OpenSearchClientProvider,
     RedisClientProvider,
-    SearchService,
+    OpenSearchSearchService,
+    DatabaseSearchService,
+    {
+      provide: SearchService,
+      useFactory: (
+        configService: ConfigService,
+        openSearchService: OpenSearchSearchService,
+        dbSearchService: DatabaseSearchService,
+      ) => {
+        const provider = configService.get<string>('SEARCH_PROVIDER') || 'opensearch';
+        return provider === 'database' ? dbSearchService : openSearchService;
+      },
+      inject: [ConfigService, OpenSearchSearchService, DatabaseSearchService],
+    },
     SearchSyncProcessor,
     SearchAnalyticsProcessor,
   ],

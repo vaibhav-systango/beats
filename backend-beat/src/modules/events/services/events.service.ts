@@ -746,6 +746,8 @@ export class EventsService {
     queryBuilder.orderBy('session.priorityWeight', 'DESC')
                 .addOrderBy('session.startAt', 'ASC');
 
+    const total = await queryBuilder.getCount();
+
     if (options?.limit !== undefined) {
       queryBuilder.take(options.limit);
     }
@@ -758,7 +760,15 @@ export class EventsService {
     for (const session of sessions) {
       session['ticketTypes'] = await this.sessionTicketTypeRepository.findTicketsBySessionId(session.id);
     }
-    return sessions;
+
+    return {
+      data: sessions,
+      pagination: {
+        total,
+        limit: options?.limit ?? total,
+        offset: options?.offset ?? 0,
+      },
+    };
   }
 
   // ==========================================
