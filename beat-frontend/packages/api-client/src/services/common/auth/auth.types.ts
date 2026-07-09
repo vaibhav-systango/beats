@@ -43,3 +43,12 @@ export type VerifyOtpResponse = {
   flowType: 'LOGIN' | 'SIGNUP'
   account: VerifyOtpAccount
 }
+
+export type RefreshTokenRequestBody = {
+  refreshToken: string
+}
+
+export type RefreshTokenResponse = {
+  accessToken: string
+  refreshToken: string
+}

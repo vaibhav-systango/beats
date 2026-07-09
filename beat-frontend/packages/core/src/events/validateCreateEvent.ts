@@ -19,12 +19,6 @@ export function validateCreateEventInput(
     errors.push({ field: 'title', message: EVENT_VALIDATION_MESSAGES.TITLE_MIN_LENGTH })
   }
 
-  if (!input.startAt || Number.isNaN(input.startAt)) {
-    errors.push({ field: 'startAt', message: EVENT_VALIDATION_MESSAGES.START_DATE_REQUIRED })
-  } else if (input.startAt < Date.now()) {
-    errors.push({ field: 'startAt', message: EVENT_VALIDATION_MESSAGES.START_DATE_FUTURE })
-  }
-
   return errors
 }
 

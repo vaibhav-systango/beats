@@ -8,10 +8,12 @@ export const ORGANISER_EVENT_ENTITY_DEFAULTS = {
   id: '',
   title: '',
   slug: '',
-  description: null,
-  startAt: 0,
+  description: '',
   status: 'DRAFT' as EventStatus,
   organiserId: '',
+  createdAt: 0,
+  updatedAt: 0,
+  startAt: 0,
 }
 
 export const ORGANISER_EVENTS_RESPONSE_DEFAULTS = {

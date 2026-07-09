@@ -3,8 +3,8 @@ import type { Event } from '@beat/types'
 import { API_CONSTANTS } from '../../../constants/api.constants'
 import { apiClient } from '../../../axios/axios'
 import { rethrowWithApiMessage } from '../../../lib/apiErrorMessage'
+import { normalizeEventEntity } from '../../../lib/normalizeEvent'
 import {
-  createApiResponseNormalizer,
   createPaginatedGetResponseNormalizer,
 } from '../../../lib/normalizeApiResponse'
 
@@ -24,10 +24,8 @@ const normalizeEventsList = createPaginatedGetResponseNormalizer(
   EVENT_ENTITY_DEFAULTS
 ) as (response: unknown) => EventsListResponse
 
-const normalizeCreatedEvent = createApiResponseNormalizer(EVENT_ENTITY_DEFAULTS)
-
 /**
- * GET /events — Public paginated event list.
+ * GET /api/v1/events — Public paginated event list.
  */
 export async function fetchEvents(
   params: GetEventsParams = {}
@@ -37,23 +35,31 @@ export async function fetchEvents(
     { params }
   )
 
-  return normalizeEventsList(data)
+  const normalized = normalizeEventsList(data)
+  return {
+    ...normalized,
+    data: normalized.data.map((item) => normalizeEventEntity(item)),
+  }
 }
 
 /**
- * POST /events — Create a new event.
+ * POST /api/v1/events — Create a new event.
  */
 export async function createEvent(input: CreateEventInput): Promise<Event> {
   try {
     const { data } = await apiClient.post<CreateEventResponse | Event>(
       API_CONSTANTS.EVENTS_CREATE,
-      input
+      {
+        title: input.title,
+        description: input.description ?? '',
+        ...(input.slug ? { slug: input.slug } : {}),
+      }
     )
 
     const payload =
       data && typeof data === 'object' && 'data' in data ? data.data : data
 
-    return normalizeCreatedEvent(payload)
+    return normalizeEventEntity(payload)
   } catch (error) {
     rethrowWithApiMessage(error)
   }

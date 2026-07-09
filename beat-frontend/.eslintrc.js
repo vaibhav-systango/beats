@@ -5,6 +5,7 @@ module.exports = {
   overrides: [
     {
       files: ['*.ts', '*.tsx', '*.js', '*.jsx'],
+      plugins: ['@typescript-eslint', 'import', 'react-hooks'],
       parser: '@typescript-eslint/parser',
       parserOptions: {
         ecmaVersion: 2020,

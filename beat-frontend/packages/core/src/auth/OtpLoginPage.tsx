@@ -1,6 +1,7 @@
 import type { DeliveryMethod } from '@beat/api-client'
 import {
   saveAccessToken,
+  saveRefreshToken,
   useSendOtp,
   useVerifyOtp,
 } from '@beat/api-client'
@@ -132,6 +133,7 @@ export function OtpLoginPage({ config, useAuthStore }: OtpLoginPageProps) {
       {
         onSuccess: (data) => {
           saveAccessToken(data.accessToken)
+          saveRefreshToken(data.refreshToken)
 
           const needsOnboarding =
             !config.skipOnboarding && data.account.onboardingStatus === 'PROFILE_PENDING'

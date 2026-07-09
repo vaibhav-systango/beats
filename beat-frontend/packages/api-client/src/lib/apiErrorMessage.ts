@@ -45,5 +45,19 @@ export function rethrowWithApiMessage(error: unknown): never {
     const apiMessage = extractApiErrorMessage(error.response.data)
     if (apiMessage) throw new Error(apiMessage)
   }
+
+  const apiMessage = extractApiErrorMessage(error)
+  if (apiMessage) throw new Error(apiMessage)
+
   throw error
+}
+
+/** Reads a user-facing message from API envelopes, axios failures, or promoted Errors. */
+export function getApiErrorMessage(error: unknown): string | null {
+  if (isAxiosLikeWithResponseData(error)) {
+    const fromResponse = extractApiErrorMessage(error.response.data)
+    if (fromResponse) return fromResponse
+  }
+
+  return extractApiErrorMessage(error)
 }

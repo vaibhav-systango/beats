@@ -13,7 +13,6 @@ import {
   getCreateEventErrorMessage,
   validateCreateEventInput,
 } from './validateCreateEvent'
-import { EVENT_DEFAULTS } from '../constants/events.constants'
 
 async function invalidateEventLists(): Promise<void> {
   await Promise.all([
@@ -41,9 +40,9 @@ export function useCreateEvent(): UseMutationResult<Event, Error, CreateEventInp
       }
 
       return createEvent({
-        ...input,
         title: input.title.trim(),
-        status: input.status ?? EVENT_DEFAULTS.STATUS,
+        description: input.description ?? '',
+        ...(input.slug ? { slug: input.slug } : {}),
       })
     },
     onSuccess: () => {

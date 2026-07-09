@@ -1,7 +1,9 @@
 import type { Event } from '@beat/types'
 import { formatEventDateTime } from '@beat/utils'
+import { Link } from 'react-router-dom'
 
 import { ORGANISER_EVENTS_COPY } from '@/constants'
+import { ORGANISER_PATHS } from '@/constants/routes.constants'
 
 export interface EventTableProps {
   events: Event[]
@@ -9,22 +11,39 @@ export interface EventTableProps {
 
 export function EventTable({ events }: EventTableProps) {
   if (events.length === 0) {
-    return <p className="text-sm text-gray-500">{ORGANISER_EVENTS_COPY.EMPTY}</p>
+    return (
+      <p className="px-4 py-8 text-center text-sm text-muted-foreground sm:px-6">
+        {ORGANISER_EVENTS_COPY.EMPTY}
+      </p>
+    )
   }
 
   return (
-    <table className="w-full text-left text-sm">
+    <table className="w-full table-fixed text-left text-sm">
       <thead>
-        <tr className="border-b text-gray-500">
-          <th className="py-2">{ORGANISER_EVENTS_COPY.TABLE_EVENT_COLUMN}</th>
-          <th className="py-2">{ORGANISER_EVENTS_COPY.TABLE_DATE_COLUMN}</th>
+        <tr className="border-b border-border bg-muted/20">
+          <th className="px-4 py-3 font-medium text-muted-foreground sm:px-6">
+            {ORGANISER_EVENTS_COPY.TABLE_EVENT_COLUMN}
+          </th>
+          <th className="w-36 px-4 py-3 text-right font-medium text-muted-foreground sm:w-44 sm:px-6">
+            {ORGANISER_EVENTS_COPY.TABLE_DATE_COLUMN}
+          </th>
         </tr>
       </thead>
       <tbody>
         {events.map((event) => (
-          <tr key={event.id} className="border-b">
-            <td className="py-2">{event.title}</td>
-            <td className="py-2">{formatEventDateTime(event.startAt)}</td>
+          <tr key={event.id} className="border-b border-border last:border-b-0">
+            <td className="px-4 py-3 sm:px-6">
+              <Link
+                to={ORGANISER_PATHS.eventStep(event.id, 'basic-info')}
+                className="font-medium text-foreground transition-colors hover:text-primary"
+              >
+                {event.title}
+              </Link>
+            </td>
+            <td className="px-4 py-3 text-right text-muted-foreground sm:px-6">
+              {event.startAt ? formatEventDateTime(event.startAt) : '—'}
+            </td>
           </tr>
         ))}
       </tbody>

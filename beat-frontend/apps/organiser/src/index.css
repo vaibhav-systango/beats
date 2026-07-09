@@ -28,24 +28,24 @@
   }
 
   .dark {
-    --background: 240 10% 4%;
-    --foreground: 0 0% 100%;
-    --border: 240 6% 18%;
-    --input: 240 6% 18%;
-    --ring: 262 83% 68%;
-    --card: 240 8% 8%;
-    --card-foreground: 0 0% 100%;
-    --popover: 240 8% 8%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 262 83% 68%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 6% 16%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 240 6% 12%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 315 80% 62%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 51%;
+    --background: 240 10% 5%;
+    --foreground: 0 0% 98%;
+    --border: 240 6% 22%;
+    --input: 240 6% 22%;
+    --ring: 262 90% 76%;
+    --card: 240 8% 11%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 8% 11%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 262 90% 76%;
+    --primary-foreground: 240 20% 8%;
+    --secondary: 240 6% 18%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 6% 15%;
+    --muted-foreground: 240 6% 72%;
+    --accent: 315 85% 70%;
+    --accent-foreground: 240 20% 8%;
+    --destructive: 0 72% 58%;
     --destructive-foreground: 0 0% 100%;
   }
 
@@ -54,13 +54,50 @@
   }
 
   body {
-    @apply bg-background font-sans text-foreground antialiased;
+    @apply overflow-x-hidden bg-background font-sans text-foreground antialiased;
+  }
+
+  html {
+    @apply overflow-x-hidden;
+  }
+
+  #root {
+    @apply min-h-[100dvh] w-full overflow-x-hidden;
   }
 }
 
 @layer utilities {
   .animate-spin {
     animation: spin 1s linear infinite;
+  }
+
+  .scrollbar-themed {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.45) hsl(var(--muted));
+  }
+
+  .scrollbar-themed::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-themed::-webkit-scrollbar-track {
+    margin: 4px 0;
+    background: transparent;
+  }
+
+  .scrollbar-themed::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+
+  .scrollbar-themed::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.6);
+  }
+
+  .scrollbar-themed::-webkit-scrollbar-button {
+    display: none;
+    height: 0;
+    width: 0;
   }
 }
 
