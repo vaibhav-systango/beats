@@ -44,11 +44,11 @@ export function YouTubePreview({
       ) : null}
 
       {embedUrl && !error ? (
-        <div className="overflow-hidden rounded-lg border border-border">
+        <div className="w-full max-w-[280px] overflow-hidden rounded-lg border border-border">
           <iframe
             src={embedUrl}
             title="YouTube promotional video preview"
-            className="aspect-video w-full"
+            className="aspect-square w-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />

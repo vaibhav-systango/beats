@@ -1,4 +1,5 @@
 import {
+  getApiErrorMessage,
   useEventCategories,
   useSubmitEvent,
   useUpdateEventSession,
@@ -89,7 +90,10 @@ export function PublishStep({ event, session, onBack }: PublishStepProps) {
       await saveCategories()
       setMessage('Draft saved.')
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Failed to save.')
+      const apiMessage = getApiErrorMessage(saveError)
+      if (apiMessage) {
+        setError(apiMessage)
+      }
     }
   }
 
@@ -105,7 +109,10 @@ export function PublishStep({ event, session, onBack }: PublishStepProps) {
     try {
       await saveCategories()
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Failed to save.')
+      const apiMessage = getApiErrorMessage(saveError)
+      if (apiMessage) {
+        setError(apiMessage)
+      }
       return
     }
 
@@ -117,7 +124,10 @@ export function PublishStep({ event, session, onBack }: PublishStepProps) {
         }, 1500)
       },
       onError: (submitError) => {
-        setError(submitError.message)
+        const apiMessage = getApiErrorMessage(submitError)
+        if (apiMessage) {
+          setError(apiMessage)
+        }
       },
     })
   }

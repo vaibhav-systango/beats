@@ -37,7 +37,7 @@ export interface GalleryUploadProps {
   error?: string | null
   accept?: string
   onOpenPicker: () => void
-  onFilesSelected: (files: FileList | null) => void
+  onFilesSelected: (files: File[]) => void
   onRemoveImage: (id: string) => void
 }
 
@@ -70,8 +70,9 @@ export function GalleryUpload({
         multiple
         className="sr-only"
         onChange={(e) => {
-          onFilesSelected(e.target.files)
+          const selected = Array.from(e.target.files ?? [])
           e.target.value = ''
+          onFilesSelected(selected)
         }}
       />
 

@@ -1,4 +1,4 @@
-import { useUpdateEventSession } from '@beat/api-client'
+import { getApiErrorMessage, useUpdateEventSession } from '@beat/api-client'
 import type { EventSession, EventSessionMedias, GalleryMediaFile } from '@beat/types'
 import { useId, useMemo, useRef, useState } from 'react'
 
@@ -119,11 +119,11 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
     setCoverFile(file)
   }
 
-  const handleGalleryFilesSelected = (files: FileList | null) => {
-    if (!files?.length) {
+  const handleGalleryFilesSelected = (files: File[]) => {
+    if (!files.length) {
       return
     }
-    setGalleryFiles((current) => [...current, ...Array.from(files)])
+    setGalleryFiles((current) => [...current, ...files])
   }
 
   const handleRemoveGalleryImage = (id: string) => {
@@ -145,7 +145,6 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
     setError(null)
 
     if (!session?.id) {
-      setError('No session found for this event.')
       return
     }
 
@@ -166,7 +165,10 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
 
       onNext()
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Failed to save media.')
+      const apiMessage = getApiErrorMessage(saveError)
+      if (apiMessage) {
+        setError(apiMessage)
+      }
     }
   }
 

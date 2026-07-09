@@ -32,6 +32,8 @@ export type { NormalizableSchema } from './lib/normalizeApiResponse'
 export {
   extractApiErrorMessage,
   apiFailureMessage,
+  getApiErrorMessage,
+  isAxiosLikeWithResponseData,
   rethrowWithApiMessage,
 } from './lib/apiErrorMessage'
 

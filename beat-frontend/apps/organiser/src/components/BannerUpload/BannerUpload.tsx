@@ -46,11 +46,11 @@ export function BannerUpload({
       />
 
       {hasBanner ? (
-        <div className="group relative overflow-hidden rounded-lg border border-border">
+        <div className="group relative aspect-[2/1] w-full overflow-hidden rounded-lg border border-border">
           <img
             src={displayUrl ?? undefined}
             alt="Event banner preview"
-            className="max-h-[280px] w-full object-cover"
+            className="h-full w-full object-cover"
           />
           <button
             type="button"
@@ -66,7 +66,7 @@ export function BannerUpload({
         <button
           type="button"
           onClick={onOpenPicker}
-          className="flex min-h-[160px] w-full flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground transition-colors hover:bg-muted/50"
+          className="flex aspect-[2/1] w-full flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground transition-colors hover:bg-muted/50"
         >
           {emptyStateLabel}
         </button>
