@@ -1,5 +1,3 @@
-export { DashboardTopBar } from './DashboardTopBar'
-export { Sidebar } from './Sidebar/Sidebar'
 export {
   DashboardPage,
   DashboardPageHeader,
@@ -10,4 +8,3 @@ export type {
   DashboardPageProps,
   DashboardPageSectionProps,
 } from './DashboardPage'
-export { ThemeToggle } from './ThemeToggle'
