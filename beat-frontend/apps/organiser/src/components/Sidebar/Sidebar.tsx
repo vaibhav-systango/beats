@@ -1,3 +1,4 @@
+import { BrandLogo } from '@beat/ui'
 import { NavLink, useLocation } from 'react-router-dom'
 
 import {
@@ -10,41 +11,6 @@ import { ORGANISER_NAVIGATION } from '@/constants'
 export interface SidebarProps {
   collapsed?: boolean
   onToggle?: () => void
-}
-
-function BrandMark() {
-  return (
-    <div className="flex min-w-0 items-center gap-2">
-      <img
-        src="/beat_light.webp"
-        alt="Beatroot"
-        className="h-7 w-auto max-w-full dark:hidden"
-        width={120}
-        height={28}
-      />
-      <img
-        src="/beat_dark.webp"
-        alt="Beatroot"
-        className="hidden h-7 w-auto max-w-full dark:block"
-        width={120}
-        height={28}
-      />
-      <span className="shrink-0 rounded bg-primary/20 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-primary">
-        Creator
-      </span>
-    </div>
-  )
-}
-
-function BrandMarkCompact() {
-  return (
-    <div
-      className="flex h-8 w-8 items-center justify-center rounded bg-primary text-sm font-bold text-primary-foreground"
-      aria-label="Beatroot Creator"
-    >
-      B
-    </div>
-  )
 }
 
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
@@ -66,7 +32,11 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             collapsed ? 'justify-center' : 'justify-between px-2'
           } text-primary`}
         >
-          {collapsed ? <BrandMarkCompact /> : <BrandMark />}
+          {collapsed ? (
+            <BrandLogo badge="Creator" compact />
+          ) : (
+            <BrandLogo badge="Creator" />
+          )}
           {!collapsed && onToggle ? (
             <button
               type="button"
@@ -118,7 +88,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       </aside>
 
       <header className="sticky top-0 z-50 flex items-center justify-between border-b border-white/5 bg-card/50 p-4 backdrop-blur-md md:hidden">
-        <BrandMark />
+        <BrandLogo badge="Creator" />
         <ThemeToggle />
       </header>
 

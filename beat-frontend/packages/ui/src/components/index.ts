@@ -1,3 +1,5 @@
+export { BrandLogo } from './BrandLogo'
+export type { BrandLogoProps } from './BrandLogo'
 export { Button } from './Button/Button'
 export type { ButtonProps } from './Button/Button'
 export { Card } from './Card/Card'
