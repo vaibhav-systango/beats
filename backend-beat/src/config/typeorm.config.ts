@@ -25,7 +25,10 @@ export const typeOrmConfig: DataSourceOptions = {
     Role,
     Otp,
     EventCategory,
-     Event, EventSession, SessionCategory, SessionTicketType,
+    Event,
+    EventSession,
+    SessionCategory,
+    SessionTicketType,
     Permission,
     RoutePermission,
     UserSession,
@@ -37,6 +40,12 @@ export const typeOrmConfig: DataSourceOptions = {
 
   extra: {
     max: 10,
+    ssl:
+      process.env.POSTGRES_SSL === 'true'
+        ? {
+            rejectUnauthorized: false,
+          }
+        : false,
   },
 };
 
