@@ -1,4 +1,4 @@
-import { getApiErrorMessage, useUpdateEventSession } from '@beat/api-client'
+import { getApiErrorMessage, useCreateEventSession, useUpdateEventSession } from '@beat/api-client'
 import type { EventSession, EventSessionMedias, GalleryMediaFile } from '@beat/types'
 import { useId, useMemo, useRef, useState } from 'react'
 
@@ -8,6 +8,8 @@ import { EVENT_EDITOR_COPY } from '@/constants'
 import { GALLERY_MAX_COUNT } from '@/constants/event-editor.constants'
 import { useObjectUrl, useObjectUrls } from '@/lib/hooks/useObjectUrl'
 import { buildSessionPatchFormData, hasSessionPatchPayload } from '@/lib/sessionFormData'
+import { upsertSession } from '@/lib/sessionUpsert'
+import { useEventDetailContext } from '@/router/eventDetailContext'
 import { buildYouTubeVideoMetadata, getYouTubeEmbedUrl, getYouTubeUrlFromSession } from '@/lib/youtubeMedia'
 
 
@@ -58,6 +60,8 @@ function hasVideoChanged(session: EventSession | undefined, videoUrl: string): b
 }
 
 export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) {
+  const { onSessionCreated } = useEventDetailContext()
+  const createSession = useCreateEventSession()
   const updateSession = useUpdateEventSession()
 
   const bannerInputId = useId()
@@ -144,20 +148,18 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
   const handleSaveAndNext = async () => {
     setError(null)
 
-    if (!session?.id) {
-      return
-    }
-
     const { files, sessionPatch } = buildSavePayload()
 
     try {
       if (hasSessionPatchPayload(sessionPatch, files)) {
         const formData = buildSessionPatchFormData(sessionPatch, files)
-        await updateSession.mutateAsync({
-          eventId,
-          sessionId: session.id,
-          formData,
+        const saved = await upsertSession(eventId, session?.id, formData, {
+          create: (args) => createSession.mutateAsync(args),
+          update: (args) => updateSession.mutateAsync(args),
         })
+        if (!session?.id) {
+          onSessionCreated(saved.id)
+        }
 
         setGalleryFiles([])
         setCoverFile(null)
@@ -177,7 +179,7 @@ export function MediaStep({ eventId, session, onBack, onNext }: MediaStepProps) 
       title={EVENT_EDITOR_COPY.MEDIA_TITLE}
       description={EVENT_EDITOR_COPY.MEDIA_DESCRIPTION}
       error={error}
-      isSaving={updateSession.isPending}
+      isSaving={createSession.isPending || updateSession.isPending}
       backLabel={EVENT_EDITOR_COPY.BACK}
       nextLabel={EVENT_EDITOR_COPY.NEXT}
       onBack={onBack}

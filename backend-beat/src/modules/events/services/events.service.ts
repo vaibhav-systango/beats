@@ -11,7 +11,7 @@ import { ulid } from 'ulid';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SearchService } from '../../search/services/search.service';
-import { Event, EventStatus } from '../../../database/entities/event.entity';
+import { Event, EventStatus, StatusLogEntry } from '../../../database/entities/event.entity';
 import { User } from '../../../database/entities/user.entity';
 import {
   EventSession,
@@ -27,8 +27,9 @@ import { EventCategory } from '../../../database/entities/event-category.entitie
 import { EmailService } from '../../../providers/email/email.service';
 import { CreateEventDto, LocationDto, EventAddressDto } from '../dto/create-event.dto';
 import { UpdateEventDto } from '../dto/update-event.dto';
-import { CreateEventSessionDto } from '../dto/create-session.dto';
+import { CreateEventSessionDto, CreateSessionTicketTypeDto } from '../dto/create-session.dto';
 import { ReviewEventDto, ReviewAction } from '../dto/review-event.dto';
+import { AdminEventsListFilter } from '../dto/admin-pending-events.dto';
 import { CacheService } from '../../../providers/cache/cache.service';
 import { EventRepository } from '../../../database/repositories/event.repository';
 import { EventSessionRepository } from '../../../database/repositories/event-session.repository';
@@ -70,6 +71,57 @@ export class EventsService {
    */
   validateSessionPayload(session: CreateEventSessionDto, isUpdate = false) {
     EventValidator.validateSessionPayload(session, isUpdate);
+  }
+
+  private applyDraftSessionDefaults(dto: CreateEventSessionDto): CreateEventSessionDto & {
+    categoryIds: string[];
+    startAt: number;
+    endAt: number;
+    location: LocationDto;
+    eventAddress: EventAddressDto;
+    capacity: number;
+    ticketSaleStartAt: number;
+    ticketSaleEndAt: number;
+    ticketTypes: CreateSessionTicketTypeDto[];
+    mode: SessionMode;
+  } {
+    const now = Date.now();
+    const weekFromNow = now + 7 * 24 * 60 * 60 * 1000;
+    const twoHours = 2 * 60 * 60 * 1000;
+
+    return {
+      ...dto,
+      categoryIds: dto.categoryIds ?? [],
+      startAt: dto.startAt ?? weekFromNow,
+      endAt: dto.endAt ?? weekFromNow + twoHours,
+      location: dto.location ?? { longitude: 0, latitude: 0 },
+      eventAddress: (dto.eventAddress ?? {}) as EventAddressDto,
+      capacity: dto.capacity ?? 100,
+      ticketSaleStartAt: dto.ticketSaleStartAt ?? now,
+      ticketSaleEndAt: dto.ticketSaleEndAt ?? weekFromNow,
+      ticketTypes: dto.ticketTypes ?? [],
+      mode: dto.mode ?? SessionMode.OFFLINE,
+    };
+  }
+
+  private syncDraftTicketSaleWindow(
+    session: EventSession,
+    dto: CreateEventSessionDto,
+  ): void {
+    const userSetTicketDates =
+      dto.ticketSaleStartAt !== undefined || dto.ticketSaleEndAt !== undefined;
+
+    if (userSetTicketDates) {
+      return;
+    }
+
+    if (Number(session.ticketSaleEndAt) > Number(session.startAt)) {
+      session.ticketSaleEndAt = session.startAt;
+    }
+
+    if (Number(session.ticketSaleStartAt) >= Number(session.ticketSaleEndAt)) {
+      session.ticketSaleStartAt = Math.max(0, Number(session.ticketSaleEndAt) - 86_400_000);
+    }
   }
 
   /**
@@ -337,85 +389,84 @@ export class EventsService {
       throw new ConflictException('Event is locked for administrative review.');
     }
 
+    let sessionDto = dto;
+
     // Defensive normalization to ensure ticketTypes is an array if provided
-    if (dto.ticketTypes !== undefined && !Array.isArray(dto.ticketTypes)) {
-      if (typeof dto.ticketTypes === 'string') {
+    if (sessionDto.ticketTypes !== undefined && !Array.isArray(sessionDto.ticketTypes)) {
+      if (typeof sessionDto.ticketTypes === 'string') {
         try {
-          dto.ticketTypes = JSON.parse(dto.ticketTypes);
+          sessionDto.ticketTypes = JSON.parse(sessionDto.ticketTypes);
         } catch (e) {}
       }
-      if (dto.ticketTypes && typeof dto.ticketTypes === 'object' && !Array.isArray(dto.ticketTypes)) {
-        const keys = Object.keys(dto.ticketTypes);
+      if (sessionDto.ticketTypes && typeof sessionDto.ticketTypes === 'object' && !Array.isArray(sessionDto.ticketTypes)) {
+        const keys = Object.keys(sessionDto.ticketTypes);
         const isIndexKeyed = keys.every((k) => !isNaN(Number(k)));
         if (isIndexKeyed) {
-          dto.ticketTypes = keys
+          sessionDto.ticketTypes = keys
             .sort((a, b) => Number(a) - Number(b))
-            .map((key) => (dto.ticketTypes as any)[key]);
+            .map((key) => (sessionDto.ticketTypes as any)[key]);
         } else {
-          dto.ticketTypes = [dto.ticketTypes];
+          sessionDto.ticketTypes = [sessionDto.ticketTypes];
         }
       }
-      if (!Array.isArray(dto.ticketTypes)) {
-        dto.ticketTypes = [dto.ticketTypes].filter(Boolean) as any;
+      if (!Array.isArray(sessionDto.ticketTypes)) {
+        sessionDto.ticketTypes = [sessionDto.ticketTypes].filter(Boolean) as any;
       }
     }
 
-    this.validateSessionPayload(dto);
+    const resolvedDto = this.applyDraftSessionDefaults(sessionDto);
 
     const result = await this.dataSource.transaction(async (manager) => {
-      // Check categories existence
-      if (!dto.categoryIds || dto.categoryIds.length === 0) {
-        throw new BadRequestException('At least one category is required for a session.');
-      }
-      const activeCategories = await manager.createQueryBuilder(EventCategory, 'category')
-        .where('category.id IN (:...ids)', { ids: dto.categoryIds })
-        .andWhere('category.is_deleted = :isDeleted', { isDeleted: false })
-        .getMany();
+      const categoryIds = resolvedDto.categoryIds;
+      if (categoryIds.length > 0) {
+        const activeCategories = await manager.createQueryBuilder(EventCategory, 'category')
+          .where('category.id IN (:...ids)', { ids: categoryIds })
+          .andWhere('category.is_deleted = :isDeleted', { isDeleted: false })
+          .getMany();
 
-      if (activeCategories.length !== dto.categoryIds.length) {
-        throw new NotFoundException(EventMessages.CATEGORY_NOT_FOUND);
+        if (activeCategories.length !== categoryIds.length) {
+          throw new NotFoundException(EventMessages.CATEGORY_NOT_FOUND);
+        }
       }
 
       const session = new EventSession();
       session.id = ulid();
       session.eventId = eventId;
-      session.title = dto.title?.trim() || undefined;
-      session.startAt = dto.startAt;
-      session.endAt = dto.endAt;
+      session.title = resolvedDto.title?.trim() || undefined;
+      session.startAt = resolvedDto.startAt;
+      session.endAt = resolvedDto.endAt;
       session.location = {
         type: 'Point',
-        coordinates: [dto.location.longitude, dto.location.latitude],
+        coordinates: [resolvedDto.location.longitude, resolvedDto.location.latitude],
       };
-      session.eventAddress = dto.eventAddress;
-      session.capacity = dto.capacity;
-      session.ageRestriction = (dto.ageRestriction as any) || undefined;
-      session.languages = dto.languages || [];
-      session.eventSessionMedias = dto.eventSessionMedias || {};
-      session.mode = (dto.mode as any) || undefined;
-      session.ticketSaleStartAt = dto.ticketSaleStartAt;
-      session.ticketSaleEndAt = dto.ticketSaleEndAt;
-      session.allowReferral = !!dto.allowReferral;
-      session.referralRewardPerTicket = dto.referralRewardPerTicket || undefined;
-      session.allowPromoters = !!dto.allowPromoters;
-      session.promoterCommissionPercentage = dto.promoterCommissionPercentage || undefined;
-      session.priorityWeight = dto.priority ? Math.floor(Date.now() / 1000) : undefined;
-      session.priorityExpiresAt = dto.priorityExpiresAt || undefined;
-      session.artistMetadata = dto.artistMetadata || undefined;
+      session.eventAddress = resolvedDto.eventAddress;
+      session.capacity = resolvedDto.capacity;
+      session.ageRestriction = (resolvedDto.ageRestriction as any) || undefined;
+      session.languages = resolvedDto.languages || [];
+      session.eventSessionMedias = resolvedDto.eventSessionMedias || {};
+      session.mode = (resolvedDto.mode as any) || undefined;
+      session.ticketSaleStartAt = resolvedDto.ticketSaleStartAt;
+      session.ticketSaleEndAt = resolvedDto.ticketSaleEndAt;
+      session.allowReferral = !!resolvedDto.allowReferral;
+      session.referralRewardPerTicket = resolvedDto.referralRewardPerTicket || undefined;
+      session.allowPromoters = !!resolvedDto.allowPromoters;
+      session.promoterCommissionPercentage = resolvedDto.promoterCommissionPercentage || undefined;
+      session.priorityWeight = resolvedDto.priority ? Math.floor(Date.now() / 1000) : undefined;
+      session.priorityExpiresAt = resolvedDto.priorityExpiresAt || undefined;
+      session.artistMetadata = resolvedDto.artistMetadata || undefined;
       session.status = SessionStatus.ACTIVE;
 
       const savedSession = await manager.save(session);
 
-      // Auto map category relations
-      for (const catId of dto.categoryIds) {
+      for (const catId of categoryIds) {
         const sessionCategory = new SessionCategory();
         sessionCategory.sessionId = savedSession.id;
         sessionCategory.categoryId = catId;
         await manager.save(sessionCategory);
       }
 
-      // Save ticket types
       const savedTicketTypes: SessionTicketType[] = [];
-      for (const tDto of dto.ticketTypes) {
+      for (const tDto of resolvedDto.ticketTypes) {
         const tType = new SessionTicketType();
         tType.id = ulid();
         tType.sessionId = savedSession.id;
@@ -538,16 +589,12 @@ export class EventsService {
       ticketTypes: dto.ticketTypes !== undefined ? dto.ticketTypes : existingTicketTypesDto,
     };
 
-    this.validateSessionPayload(mergedDto, true);
+    if (event.status !== EventStatus.DRAFT) {
+      this.validateSessionPayload(mergedDto, true);
+    }
 
     const result = await this.dataSource.transaction(async (manager) => {
-      // Validate categories if they are being updated
-      const categoryIdsToUse = dto.categoryIds !== undefined ? dto.categoryIds : existingCategoryIds;
-      if (!categoryIdsToUse || categoryIdsToUse.length === 0) {
-        throw new BadRequestException('At least one category is required for a session.');
-      }
-
-      if (dto.categoryIds !== undefined) {
+      if (dto.categoryIds !== undefined && dto.categoryIds.length > 0) {
         const activeCategories = await manager.createQueryBuilder(EventCategory, 'category')
           .where('category.id IN (:...ids)', { ids: dto.categoryIds })
           .andWhere('category.is_deleted = :isDeleted', { isDeleted: false })
@@ -575,6 +622,11 @@ export class EventsService {
       session.mode = dto.mode !== undefined ? ((dto.mode as any) || undefined) : session.mode;
       session.ticketSaleStartAt = dto.ticketSaleStartAt !== undefined ? dto.ticketSaleStartAt : session.ticketSaleStartAt;
       session.ticketSaleEndAt = dto.ticketSaleEndAt !== undefined ? dto.ticketSaleEndAt : session.ticketSaleEndAt;
+
+      if (event.status === EventStatus.DRAFT) {
+        this.syncDraftTicketSaleWindow(session, dto);
+      }
+
       session.allowReferral = dto.allowReferral !== undefined ? !!dto.allowReferral : session.allowReferral;
       session.referralRewardPerTicket = dto.referralRewardPerTicket !== undefined ? (dto.referralRewardPerTicket || undefined) : session.referralRewardPerTicket;
       session.allowPromoters = dto.allowPromoters !== undefined ? !!dto.allowPromoters : session.allowPromoters;
@@ -1080,6 +1132,99 @@ export class EventsService {
    */
   async getOrganizerEvents(organizerId: string) {
     return await this.eventRepository.findOrganizerEvents(organizerId);
+  }
+
+  /**
+   * Paginated list of admin events filtered by review status.
+   * ACCEPTED maps to PUBLISHED and APPROVED rows.
+   */
+  async getAdminEventsByStatus(
+    statusFilter: AdminEventsListFilter,
+    page: number,
+    limit: number,
+  ) {
+    const statuses = this.resolveAdminListStatuses(statusFilter);
+    const [total, rows] = await Promise.all([
+      this.eventRepository.countAdminEventsByStatuses(statuses),
+      this.eventRepository.findAdminEventsByStatuses(statuses, page, limit),
+    ]);
+
+    const eventIds = rows.map((row) => row.id);
+    const startAtByEventId =
+      await this.eventRepository.findFirstSessionStartAtByEventIds(eventIds);
+
+    return {
+      data: rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        status: row.status,
+        organiserName: this.resolveOrganiserDisplayName(
+          row.organizerFullName,
+          row.organizerEmail,
+        ),
+        startAt: startAtByEventId.get(row.id) ?? null,
+        submittedAt: this.resolveSubmittedAt(row.statusLog, row.updatedAt),
+      })),
+      pagination: {
+        total,
+        page,
+        limit,
+      },
+    };
+  }
+
+  /**
+   * @deprecated Use getAdminEventsByStatus(AdminEventsListFilter.PENDING_APPROVAL, ...)
+   */
+  async getAdminPendingEvents(page: number, limit: number) {
+    return this.getAdminEventsByStatus(
+      AdminEventsListFilter.PENDING_APPROVAL,
+      page,
+      limit,
+    );
+  }
+
+  private resolveAdminListStatuses(statusFilter: AdminEventsListFilter): EventStatus[] {
+    switch (statusFilter) {
+      case AdminEventsListFilter.ACCEPTED:
+        return [EventStatus.PUBLISHED, EventStatus.APPROVED];
+      case AdminEventsListFilter.PENDING_APPROVAL:
+        return [EventStatus.PENDING_APPROVAL];
+      case AdminEventsListFilter.PUBLISHED:
+        return [EventStatus.PUBLISHED];
+      case AdminEventsListFilter.REJECTED:
+        return [EventStatus.REJECTED];
+      case AdminEventsListFilter.APPROVED:
+        return [EventStatus.APPROVED];
+      default:
+        return [EventStatus.PENDING_APPROVAL];
+    }
+  }
+
+  private resolveOrganiserDisplayName(
+    fullName: string | null,
+    email: string | null,
+  ): string {
+    if (fullName?.trim()) {
+      return fullName.trim();
+    }
+    if (email?.trim()) {
+      return email.trim();
+    }
+    return '';
+  }
+
+  private resolveSubmittedAt(
+    statusLog: StatusLogEntry[] | null | undefined,
+    updatedAt: number,
+  ): number {
+    if (Array.isArray(statusLog)) {
+      const submittedEntries = statusLog.filter((entry) => entry.action === 'SUBMITTED');
+      if (submittedEntries.length > 0) {
+        return submittedEntries[submittedEntries.length - 1].timestamp;
+      }
+    }
+    return updatedAt;
   }
 
   private async buildEventDetailsHtml(eventId: string): Promise<string> {

@@ -32,7 +32,7 @@ export function withLayout(content: string): string {
 export const emailTemplates: Record<string, EmailTemplate> = {
   'event.submitted': {
     subject: 'New Event Review Request: {{title}}',
-    text: 'A new event has been registered and is awaiting your review.\n\nEvent Title: {{title}}\nOrganizer: {{organizerId}}\n\nView details on portal: {{adminPortalUrl}}/admin/events/{{eventId}}',
+    text: 'A new event has been registered and is awaiting your review.\n\nEvent Title: {{title}}\nOrganizer: {{organizerId}}\n\nView details on portal: {{adminPortalUrl}}/dashboard/events/{{eventId}}',
     html: withLayout(`
       <h2 style="color: #0f172a; margin-top: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">New Event Registered</h2>
       <p style="color: #475569; font-size: 14px; margin-bottom: 20px;">Hello Admin Team,</p>
@@ -52,7 +52,7 @@ export const emailTemplates: Record<string, EmailTemplate> = {
       </div>
       
       <div style="margin: 25px 0; text-align: center;">
-        <a href="{{adminPortalUrl}}/admin/events/{{eventId}}" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: bold; text-decoration: none; box-shadow: 0 4px 6px -1px rgba(37,99,235,0.2);">View on Portal</a>
+        <a href="{{adminPortalUrl}}/dashboard/events/{{eventId}}" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: bold; text-decoration: none; box-shadow: 0 4px 6px -1px rgba(37,99,235,0.2);">View on Portal</a>
       </div>
     `),
   },

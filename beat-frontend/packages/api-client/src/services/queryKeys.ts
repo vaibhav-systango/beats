@@ -1,4 +1,4 @@
-import type { GetEventsParams } from '@beat/types'
+import type { AdminEventsTab, GetEventsParams } from '@beat/types'
 
 export const QUERY_KEYS = {
   COMMON: {
@@ -24,6 +24,17 @@ export const QUERY_KEYS = {
         ['beat', 'organiser', 'events', 'list', page, limit] as const,
       detail: (id: string) =>
         ['beat', 'organiser', 'events', 'detail', id] as const,
+    },
+  },
+  ADMIN: {
+    EVENTS: {
+      all: () => ['beat', 'admin', 'events'] as const,
+      list: (tab: AdminEventsTab, page: number, limit: number) =>
+        ['beat', 'admin', 'events', 'list', tab, page, limit] as const,
+      /** @deprecated Use list('pending', page, limit) */
+      pending: (page: number, limit: number) =>
+        ['beat', 'admin', 'events', 'list', 'pending', page, limit] as const,
+      detail: (id: string) => ['beat', 'admin', 'events', 'detail', id] as const,
     },
   },
 } as const

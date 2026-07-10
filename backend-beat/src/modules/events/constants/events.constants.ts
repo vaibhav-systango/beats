@@ -34,6 +34,7 @@ export const EventMessages = {
   ORGANIZER_ONLY_VIEW: 'Only organizer accounts can view their events.',
   ADMIN_ONLY_REVIEW: 'Only admin accounts can review events.',
   ADMIN_ONLY_CANCEL: 'Only admin accounts can cancel events.',
+  ADMIN_ONLY_VIEW_PENDING: 'Only admin accounts can view pending events.',
 
   // Checkout Validations
   CHECKOUT_INVALID_INPUT: 'Invalid ticketTypeId or quantity.',

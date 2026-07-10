@@ -100,19 +100,19 @@ export interface EventWithSessions extends Event {
 }
 
 export interface CreateSessionInput {
-  categoryIds: string[]
+  categoryIds?: string[]
   title?: string
-  startAt: number
-  endAt: number
-  location: SessionLocation
-  eventAddress: EventAddress
-  capacity: number
+  startAt?: number
+  endAt?: number
+  location?: SessionLocation
+  eventAddress?: EventAddress
+  capacity?: number
   ageRestriction?: AgeRestriction
   languages?: string[]
   mode?: SessionMode
-  ticketSaleStartAt: number
-  ticketSaleEndAt: number
-  ticketTypes: SessionTicketType[]
+  ticketSaleStartAt?: number
+  ticketSaleEndAt?: number
+  ticketTypes?: SessionTicketType[]
 }
 
 export type UpdateSessionInput = Partial<CreateSessionInput>

@@ -12,6 +12,7 @@ import { QUERY_KEYS } from '../../queryKeys'
 import {
   createEventSession,
   createOrganiserEvent,
+  deleteEventSession,
   fetchEventById,
   fetchOrganiserEvents,
   submitEvent,
@@ -153,6 +154,23 @@ export const useUpdateEventSession = (): UseMutationResult<
   return useMutation({
     mutationFn: ({ eventId, sessionId, formData }) =>
       updateEventSession(eventId, sessionId, formData),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.ORGANISER.EVENTS.detail(variables.eventId),
+      })
+    },
+  })
+}
+
+export const useDeleteEventSession = (): UseMutationResult<
+  void,
+  Error,
+  { eventId: string; sessionId: string }
+> => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ eventId, sessionId }) => deleteEventSession(eventId, sessionId),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.ORGANISER.EVENTS.detail(variables.eventId),

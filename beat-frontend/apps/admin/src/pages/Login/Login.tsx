@@ -1,5 +1,5 @@
 import { OtpLoginPage } from '@beat/core'
-import { ShieldCheck } from '@beat/ui'
+import { BrandLogo } from '@beat/ui'
 
 import { ADMIN_AUTH_CONSTANTS, ADMIN_AUTH_COPY } from '@/constants'
 import { useAuthStore } from '@/store'
@@ -13,7 +13,7 @@ export function Login() {
         showVoiceOtp: ADMIN_AUTH_CONSTANTS.SHOW_VOICE_OTP,
         skipOnboarding: ADMIN_AUTH_CONSTANTS.SKIP_ONBOARDING,
         brandName: ADMIN_AUTH_COPY.BRAND_NAME,
-        brandIcon: <ShieldCheck className="h-8 w-8 text-red-500" />,
+        brandIcon: <BrandLogo badge="Admin" />,
         heroTitle: ADMIN_AUTH_COPY.HERO_TITLE,
         heroDescription: ADMIN_AUTH_COPY.HERO_DESCRIPTION,
         heroImageUrl: ADMIN_AUTH_COPY.HERO_IMAGE_URL,

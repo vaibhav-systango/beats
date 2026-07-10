@@ -49,6 +49,13 @@
     --destructive-foreground: 0 0% 100%;
   }
 
+  /* Admin brand red — light mode (same hue family as dark, slightly darker for contrast on white) */
+  :root[data-app='admin'] {
+    --primary: 0 72% 46%;
+    --ring: 0 72% 46%;
+    --accent: 0 62% 42%;
+  }
+
   .dark[data-app='admin'] {
     --primary: 0 72% 51%;
     --ring: 0 72% 51%;

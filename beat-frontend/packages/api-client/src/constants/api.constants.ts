@@ -16,4 +16,7 @@ export const API_CONSTANTS = {
   AUTH_REFRESH_TOKEN: '/auth/refresh-token',
   USERS_ONBOARDING: '/users',
   EVENT_CATEGORIES: `${API_V1_PREFIX}/event-categories`,
+  ADMIN_EVENTS_PENDING: `${API_V1_PREFIX}/events/admin/pending`,
+  ADMIN_EVENTS_LIST: `${API_V1_PREFIX}/events/admin/events`,
+  ADMIN_EVENT_REVIEW: (id: string) => `${API_V1_PREFIX}/events/admin/${id}/review`,
 } as const

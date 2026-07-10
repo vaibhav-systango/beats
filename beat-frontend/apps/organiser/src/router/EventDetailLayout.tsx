@@ -1,4 +1,4 @@
-import { useCreateEventSession, useEventDetails } from '@beat/api-client'
+import { useCreateEventSession, useDeleteEventSession, useEventDetails } from '@beat/api-client'
 import type { EventSession } from '@beat/types'
 import { Loader2 } from '@beat/ui'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -21,7 +21,7 @@ import {
   DASHBOARD_EDITOR_SIDEBAR_PADDING,
 } from '@/lib/dashboard-layout.constants'
 import { buildDuplicateSessionInput } from '@/lib/duplicateSession'
-import { buildSessionFormData } from '@/lib/sessionFormData'
+import { buildSessionPatchFormData, buildSessionFormData } from '@/lib/sessionFormData'
 import { EventEditorSidebar } from '@/pages/dashboard/EventEditor/EventEditorSidebar'
 import { BasicInfoStep } from '@/pages/dashboard/EventEditor/steps/BasicInfoStep'
 import { MediaStep } from '@/pages/dashboard/EventEditor/steps/MediaStep'
@@ -86,22 +86,42 @@ export function EventDetailLayout() {
 
   const { data: event, isLoading, error } = useEventDetails(id)
   const createSession = useCreateEventSession()
-  const [duplicateError, setDuplicateError] = useState<string | null>(null)
+  const deleteSession = useDeleteEventSession()
+  const [sessionActionError, setSessionActionError] = useState<string | null>(null)
+  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null)
 
   const sessions = event?.sessions ?? []
+  const canManageSessions = event?.status !== 'PENDING_APPROVAL'
 
   const session = useMemo((): EventSession | undefined => {
-    if (!sessions.length) {
-      return undefined
-    }
     if (activeSessionId) {
-      return sessions.find((item) => item.id === activeSessionId) ?? sessions[0]
+      return sessions.find((item) => item.id === activeSessionId)
     }
     return sessions[0]
   }, [sessions, activeSessionId])
 
   useEffect(() => {
+    if (pendingSessionId && sessions.some((item) => item.id === pendingSessionId)) {
+      setPendingSessionId(null)
+    }
+  }, [sessions, pendingSessionId])
+
+  useEffect(() => {
     if (!sessions.length) {
+      if (activeSessionId && !pendingSessionId) {
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev)
+            next.delete('sessionId')
+            return next
+          },
+          { replace: true }
+        )
+      }
+      return
+    }
+
+    if (pendingSessionId && activeSessionId === pendingSessionId) {
       return
     }
 
@@ -118,7 +138,22 @@ export function EventDetailLayout() {
         { replace: true }
       )
     }
-  }, [sessions, activeSessionId, setSearchParams])
+  }, [sessions, activeSessionId, pendingSessionId, setSearchParams])
+
+  const onSessionCreated = useCallback(
+    (newSessionId: string) => {
+      setPendingSessionId(newSessionId)
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.set('sessionId', newSessionId)
+          return next
+        },
+        { replace: true }
+      )
+    },
+    [setSearchParams]
+  )
 
   const navigateToStep = useCallback(
     (step: EventEditorStep) => {
@@ -127,11 +162,11 @@ export function EventDetailLayout() {
       }
       navigate(
         ORGANISER_PATHS.eventStep(id, step, {
-          sessionId: session?.id,
+          sessionId: activeSessionId ?? session?.id,
         })
       )
     },
-    [id, navigate, session?.id]
+    [id, navigate, activeSessionId, session?.id]
   )
 
   const handleSessionChange = (sessionId: string) => {
@@ -139,9 +174,7 @@ export function EventDetailLayout() {
       return
     }
 
-    const confirmed = window.confirm(
-      'Switch session? Unsaved changes on this step will be lost.'
-    )
+    const confirmed = window.confirm(EVENT_EDITOR_COPY.SWITCH_SESSION_CONFIRM)
     if (!confirmed) {
       return
     }
@@ -156,25 +189,86 @@ export function EventDetailLayout() {
     )
   }
 
+  const handleAddSession = async () => {
+    if (!id || !canManageSessions) {
+      return
+    }
+
+    setSessionActionError(null)
+
+    try {
+      const formData = buildSessionPatchFormData({})
+      const created = await createSession.mutateAsync({ eventId: id, formData })
+      setPendingSessionId(created.id)
+      navigate(
+        ORGANISER_PATHS.eventStep(id, 'basic-info', { sessionId: created.id })
+      )
+    } catch (addSessionError) {
+      setSessionActionError(
+        addSessionError instanceof Error
+          ? addSessionError.message
+          : 'Failed to add session.'
+      )
+    }
+  }
+
   const handleDuplicateSession = async () => {
     if (!session || !id) {
       return
     }
 
-    setDuplicateError(null)
+    setSessionActionError(null)
 
     try {
       const input = buildDuplicateSessionInput(session)
       const formData = buildSessionFormData(input)
       const created = await createSession.mutateAsync({ eventId: id, formData })
+      setPendingSessionId(created.id)
       navigate(
         ORGANISER_PATHS.eventStep(id, 'basic-info', { sessionId: created.id })
       )
     } catch (duplicateSessionError) {
-      setDuplicateError(
+      setSessionActionError(
         duplicateSessionError instanceof Error
           ? duplicateSessionError.message
           : 'Failed to duplicate session.'
+      )
+    }
+  }
+
+  const handleDeleteSession = async (sessionIdToDelete: string) => {
+    if (!id || !canManageSessions) {
+      return
+    }
+
+    const confirmed = window.confirm(EVENT_EDITOR_COPY.DELETE_SESSION_CONFIRM)
+    if (!confirmed) {
+      return
+    }
+
+    setSessionActionError(null)
+
+    try {
+      await deleteSession.mutateAsync({ eventId: id, sessionId: sessionIdToDelete })
+
+      const remaining = sessions.filter((item) => item.id !== sessionIdToDelete)
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (remaining.length > 0) {
+            next.set('sessionId', remaining[0].id)
+          } else {
+            next.delete('sessionId')
+          }
+          return next
+        },
+        { replace: true }
+      )
+    } catch (deleteSessionError) {
+      setSessionActionError(
+        deleteSessionError instanceof Error
+          ? deleteSessionError.message
+          : 'Failed to delete session.'
       )
     }
   }
@@ -205,8 +299,9 @@ export function EventDetailLayout() {
     eventId: id,
     sessions,
     session,
-    sessionId: session?.id,
+    sessionId: activeSessionId ?? session?.id,
     navigateToStep,
+    onSessionCreated,
   }
 
   return (
@@ -219,11 +314,17 @@ export function EventDetailLayout() {
               eventId={id}
               sessions={sessions}
               session={session}
-              activeSessionId={session?.id}
-              isDuplicating={createSession.isPending}
-              duplicateError={duplicateError}
+              activeSessionId={activeSessionId ?? session?.id}
+              canManageSessions={canManageSessions}
+              isCreatingSession={createSession.isPending}
+              isDeletingSession={deleteSession.isPending}
+              sessionActionError={sessionActionError}
               onSessionChange={handleSessionChange}
+              onAddSession={() => void handleAddSession()}
               onDuplicateSession={() => void handleDuplicateSession()}
+              onDeleteSession={(sessionIdToDelete) =>
+                void handleDeleteSession(sessionIdToDelete)
+              }
             />
           </div>
         </div>
@@ -241,7 +342,7 @@ export function EventDetailLayout() {
                 element={
                   <Navigate
                     to={ORGANISER_PATHS.eventStep(id, 'basic-info', {
-                      sessionId: session?.id,
+                      sessionId: activeSessionId ?? session?.id,
                     })}
                     replace
                   />

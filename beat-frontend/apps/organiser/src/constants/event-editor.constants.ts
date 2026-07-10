@@ -124,6 +124,8 @@ export const EVENT_EDITOR_COPY = {
   SESSIONS_TITLE: 'Sessions',
   ADD_SESSION: '+ Add session',
   DUPLICATE_SESSION: 'Duplicate session',
+  DELETE_SESSION: 'Delete session',
+  DELETE_SESSION_CONFIRM: 'Delete this session? This cannot be undone.',
   SWITCH_SESSION_CONFIRM:
     'Switch session? Unsaved changes on this step will be lost.',
 } as const

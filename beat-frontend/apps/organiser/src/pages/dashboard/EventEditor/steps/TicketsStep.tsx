@@ -1,4 +1,4 @@
-import { useUpdateEventSession } from '@beat/api-client'
+import { useCreateEventSession, useUpdateEventSession } from '@beat/api-client'
 import type { EventSession, SessionTicketType, UpdateSessionInput } from '@beat/types'
 import { useState } from 'react'
 
@@ -11,6 +11,8 @@ import {
   epochToDatetimeLocal,
   hasSessionPatchPayload,
 } from '@/lib/sessionFormData'
+import { upsertSession } from '@/lib/sessionUpsert'
+import { useEventDetailContext } from '@/router/eventDetailContext'
 
 export interface TicketsStepProps {
   eventId: string
@@ -31,6 +33,8 @@ function createEmptyTicket(session?: EventSession): SessionTicketType {
 }
 
 export function TicketsStep({ eventId, session, onBack, onNext }: TicketsStepProps) {
+  const { onSessionCreated } = useEventDetailContext()
+  const createSession = useCreateEventSession()
   const updateSession = useUpdateEventSession()
 
   const [ticketTypes, setTicketTypes] = useState<SessionTicketType[]>(
@@ -82,21 +86,18 @@ export function TicketsStep({ eventId, session, onBack, onNext }: TicketsStepPro
   const handleSaveAndNext = async () => {
     setError(null)
 
-    if (!session?.id) {
-      setError('No session found for this event.')
-      return
-    }
-
     const sessionPatch = buildSessionPatch()
 
     try {
       if (hasSessionPatchPayload(sessionPatch)) {
         const formData = buildSessionPatchFormData(sessionPatch)
-        await updateSession.mutateAsync({
-          eventId,
-          sessionId: session.id,
-          formData,
+        const saved = await upsertSession(eventId, session?.id, formData, {
+          create: (args) => createSession.mutateAsync(args),
+          update: (args) => updateSession.mutateAsync(args),
         })
+        if (!session?.id) {
+          onSessionCreated(saved.id)
+        }
       }
 
       onNext()
@@ -118,7 +119,7 @@ export function TicketsStep({ eventId, session, onBack, onNext }: TicketsStepPro
       saleStartLocal={saleStartLocal}
       saleEndLocal={saleEndLocal}
       error={error}
-      isSaving={updateSession.isPending}
+      isSaving={createSession.isPending || updateSession.isPending}
       backLabel={EVENT_EDITOR_COPY.BACK}
       nextLabel={EVENT_EDITOR_COPY.NEXT}
       onShowForm={() => setShowForm(true)}

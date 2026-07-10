@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark" data-app="admin">
+<html lang="en" data-app="admin">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,6 +10,17 @@
       rel="stylesheet"
     />
     <title>Beat Admin</title>
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('admin-theme')
+          var mode = stored ? (JSON.parse(stored).state || {}).mode || 'system' : 'system'
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          var resolved = mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode
+          document.documentElement.classList.toggle('dark', resolved === 'dark')
+        } catch (e) {}
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
