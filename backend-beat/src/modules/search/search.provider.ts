@@ -1,6 +1,6 @@
 import { Client } from '@opensearch-project/opensearch';
 import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
+import { createLoggedRedisClient } from '../../config/redis.configuration';
 
 export const OpenSearchClientProvider = {
   provide: 'OPENSEARCH_CLIENT',
@@ -14,10 +14,7 @@ export const OpenSearchClientProvider = {
 export const RedisClientProvider = {
   provide: 'REDIS_CLIENT',
   useFactory: (configService: ConfigService) => {
-    return new Redis({
-      host: configService.get<string>('REDIS_HOST', 'localhost'),
-      port: parseInt(configService.get<string>('REDIS_PORT', '6379'), 10),
-    });
+    return createLoggedRedisClient(configService, 'RedisClient');
   },
   inject: [ConfigService],
 };
