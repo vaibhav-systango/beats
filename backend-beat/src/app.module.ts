@@ -1,4 +1,4 @@
-import { Logger, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -46,14 +46,9 @@ import { SearchModule } from './modules/search/search.module';
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60000, limit: 500 }] }),
     BullModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const connection = buildRedisOptions(config);
-        const logger = new Logger('BullMQ');
-        logger.log(
-          `BullMQ Redis at ${connection.host}:${connection.port} (tls=${Boolean(connection.tls)}, auth=${Boolean(connection.password)})`,
-        );
-        return { connection };
-      },
+      useFactory: (config: ConfigService) => ({
+        connection: buildRedisOptions(config),
+      }),
     }),
     SearchModule,
     AuthModule,

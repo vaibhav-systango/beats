@@ -275,17 +275,40 @@ export class EventsController {
       if (user.role !== UserRole.ORGANIZER) {
         throw new ForbiddenException('Only organizer accounts can update sessions.');
       }
-      console.log('rawDto received in updateSession:', JSON.stringify(rawDto, null, 2));
-      const dto = this.eventsHelper.parseMultipartSessionDto(rawDto);
-      console.log('dto parsed in updateSession:', JSON.stringify(dto, null, 2));
-      await this.eventsHelper.processUploadedFilesSingle(dto, files);
 
+      this.logger.log(
+        `PATCH /events/${eventId}/sessions/${sessionId} — organizer=${user.sub}, files=${files?.length ?? 0}`,
+      );
+      this.logger.debug(
+        `PATCH session rawDto: ${JSON.stringify(rawDto)}`,
+      );
+
+      const dto = this.eventsHelper.parseMultipartSessionDto(rawDto);
+      this.logger.debug(
+        `PATCH session parsedDto: ${JSON.stringify(dto)}`,
+      );
+
+      await this.eventsHelper.processUploadedFilesSingle(dto, files);
       return await this.eventsService.updateSession(eventId, sessionId, dto, user.sub);
     } catch (error) {
+      this.logger.error(
+        {
+          message: 'PATCH /events/:eventId/sessions/:sessionId failed',
+          eventId,
+          sessionId,
+          organizerId: req?.user?.sub,
+          errorName: error?.name,
+          errorMessage: error?.message,
+          errorResponse: error?.response,
+          statusCode: error?.status ?? error?.statusCode,
+        },
+        error?.stack,
+      );
+
       if (error instanceof HttpException) {
         throw error;
       }
-      this.logger.error(`Error occurred in updating event session: ${error.message}`, error.stack);
+
       throw new InternalServerErrorException({
         message: EventMessages.UNEXPECTED_ERROR,
       });

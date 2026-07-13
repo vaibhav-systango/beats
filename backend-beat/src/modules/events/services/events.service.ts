@@ -711,7 +711,14 @@ export class EventsService {
     });
 
     await this.invalidateEventCache(eventId);
-    await this.searchSyncQueue.add('upsert-event', { eventId });
+    try {
+      await this.searchSyncQueue.add('upsert-event', { eventId });
+    } catch (queueError: any) {
+      this.logger.error(
+        `Failed to enqueue search-sync upsert-event after session update (eventId=${eventId}, sessionId=${sessionId}): ${queueError?.message}`,
+        queueError?.stack,
+      );
+    }
     return result;
   }
 
