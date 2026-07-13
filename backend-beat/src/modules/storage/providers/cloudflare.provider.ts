@@ -8,42 +8,46 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { Readable } from 'stream';
 import { ulid } from 'ulid';
 import { extname } from 'path';
 import * as mime from 'mime-types';
+import {
+  IStorageProvider,
+  StorageObjectReference,
+} from './storage.interface';
 import { resolveObjectKey } from '../helpers/storage-key.helper';
-import { IStorageProvider } from './storage.interface';
+
+type UploadBody = Buffer | Readable;
 
 @Injectable()
-export class S3Provider implements IStorageProvider {
-  private readonly logger = new Logger(S3Provider.name);
+export class CloudflareProvider implements IStorageProvider {
+  private readonly logger = new Logger(CloudflareProvider.name);
   private readonly client: S3Client;
   private readonly bucketName: string;
-  private readonly bucketBaseUrl: string;
+  private readonly endpoint: string;
+  private readonly publicUrlBase: string;
   private readonly signedUrlExpirySeconds: number;
 
   constructor(private readonly configService: ConfigService) {
-    const region = this.configService.get<string>('s3.region', 'us-east-1');
     this.bucketName =
-      this.configService.get<string>('s3.bucketName') || 'beats-events';
+      this.configService.get<string>('cloudflare.bucket') || 'beats-events';
+    this.endpoint =
+      this.configService.get<string>('cloudflare.endpoint', '') || '';
+    const accessKey = this.configService.get<string>('cloudflare.accessKey', '');
+    const secretKey = this.configService.get<string>('cloudflare.secretKey', '');
+    this.publicUrlBase =
+      this.configService.get<string>('cloudflare.publicUrlBase') || '';
     this.signedUrlExpirySeconds =
       this.configService.get<number>('storage.signedUrlExpirySeconds') ?? 3600;
 
-    const publicUrlBase = this.configService.get<string>('s3.publicUrlBase');
-    this.bucketBaseUrl =
-      publicUrlBase?.replace(/\/$/, '') ||
-      `https://${this.bucketName}.s3.${region}.amazonaws.com`;
-
-    const accessKeyId = this.configService.get<string>('s3.accessKeyId');
-    const secretAccessKey = this.configService.get<string>('s3.secretAccessKey');
-
-    const credentials = accessKeyId
-      ? { accessKeyId, secretAccessKey: secretAccessKey || '' }
-      : undefined;
-
     this.client = new S3Client({
-      region,
-      ...(credentials ? { credentials } : {}),
+      region: 'auto',
+      endpoint: this.endpoint,
+      credentials: {
+        accessKeyId: accessKey,
+        secretAccessKey: secretKey,
+      },
     });
   }
 
@@ -54,11 +58,14 @@ export class S3Provider implements IStorageProvider {
           Bucket: this.bucketName,
         }),
       );
-      this.logger.log(`S3 configured and accessible for bucket "${this.bucketName}".`);
+      this.logger.log(
+        `Storage initialized — Provider: cloudflare, Bucket: ${this.bucketName}`,
+      );
       return true;
-    } catch (error: any) {
-      this.logger.error(
-        `S3 health check failed for bucket "${this.bucketName}": ${error.message}`,
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Storage health check failed — Provider: cloudflare, Bucket: ${this.bucketName}: ${message}`,
       );
       return false;
     }
@@ -69,26 +76,43 @@ export class S3Provider implements IStorageProvider {
     originalName: string,
     prefix = '',
   ): Promise<string> {
+    const reference = await this.uploadObject(file, originalName, prefix);
+    return reference.key;
+  }
+
+  async uploadObject(
+    body: UploadBody,
+    originalName: string,
+    prefix = '',
+  ): Promise<StorageObjectReference> {
     try {
       const extension = extname(originalName);
       const fileName = `${ulid()}${extension}`;
-      const filePath = prefix ? `${prefix}/${fileName}` : fileName;
+      const objectKey = prefix ? `${prefix}/${fileName}` : fileName;
       const contentType =
         mime.lookup(originalName) || 'application/octet-stream';
 
       await this.client.send(
         new PutObjectCommand({
           Bucket: this.bucketName,
-          Key: filePath,
-          Body: file,
+          Key: objectKey,
+          Body: body,
           ContentType: contentType,
         }),
       );
 
-      this.logger.log(`File uploaded to S3: key=${filePath}`);
-      return filePath;
+      this.logger.log(
+        `File uploaded to Cloudflare R2: key=${objectKey}, bucket=${this.bucketName}`,
+      );
+
+      return {
+        key: objectKey,
+        bucket: this.bucketName,
+      };
     } catch (error) {
-      this.logger.error(`S3 upload failed: ${JSON.stringify(error)}`);
+      this.logger.error(
+        `Cloudflare R2 upload failed: ${JSON.stringify(error)}`,
+      );
       throw error;
     }
   }
@@ -129,7 +153,7 @@ export class S3Provider implements IStorageProvider {
   async deleteFile(fileUrlOrKey: string): Promise<void> {
     try {
       const key = resolveObjectKey(fileUrlOrKey, {
-        publicUrlBase: this.bucketBaseUrl,
+        publicUrlBase: this.publicUrlBase || undefined,
       });
       await this.client.send(
         new DeleteObjectCommand({
@@ -137,9 +161,11 @@ export class S3Provider implements IStorageProvider {
           Key: key,
         }),
       );
-      this.logger.log(`Deleted file from S3: key=${key}`);
+      this.logger.log(`Deleted file from Cloudflare R2: key=${key}`);
     } catch (error) {
-      this.logger.error(`S3 delete failed: ${JSON.stringify(error)}`);
+      this.logger.error(
+        `Cloudflare R2 delete failed: ${JSON.stringify(error)}`,
+      );
       throw error;
     }
   }
@@ -152,27 +178,30 @@ export class S3Provider implements IStorageProvider {
       throw new Error('Object key is required to generate a signed URL');
     }
 
-    const normalizedKey = key.replace(/^\//, '');
     const expiresIn = expiresInSeconds ?? this.signedUrlExpirySeconds;
 
     const url = await getSignedUrl(
       this.client,
       new GetObjectCommand({
         Bucket: this.bucketName,
-        Key: normalizedKey,
+        Key: key.replace(/^\//, ''),
       }),
       { expiresIn },
     );
 
-    this.logger.log(`Generated S3 signed URL for key=${normalizedKey}`);
+    this.logger.log(`Generated Cloudflare R2 signed URL for key=${key.replace(/^\//, '')}`);
     return url;
   }
 
   getStorageInfo(): { type: string; bucket: string; baseUrl: string } {
+    const baseUrl =
+      this.publicUrlBase.replace(/\/$/, '') ||
+      this.endpoint.replace(/\/$/, '');
+
     return {
-      type: 'S3',
+      type: 'cloudflare',
       bucket: this.bucketName,
-      baseUrl: this.bucketBaseUrl,
+      baseUrl,
     };
   }
 }
