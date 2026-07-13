@@ -26,6 +26,10 @@ export function GenerateSignedUrlSwagger() {
       description: StorageMessages.INVALID_OBJECT_KEY,
     }),
     ApiResponse({
+      status: HttpStatus.FORBIDDEN,
+      description: StorageMessages.UNAUTHORIZED_FILE_ACCESS,
+    }),
+    ApiResponse({
       status: HttpStatus.UNAUTHORIZED,
       description: 'Authentication required.',
     }),

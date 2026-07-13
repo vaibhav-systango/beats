@@ -8,11 +8,10 @@ import { UserRole } from '../../../common/enums/user.enums';
 import { EventStatus } from '../../../database/entities/event.entity';
 import { EventSessionRepository } from '../../../database/repositories/event-session.repository';
 import { StorageMessages } from '../constants/storage.constants';
+import { MAX_SIGNED_URL_EXPIRY_SECONDS } from '../dto/generate-signed-url.dto';
 import { normalizeObjectKey } from '../helpers/storage-key.helper';
 import { SignedUrlResult } from '../providers/storage.interface';
 import { StorageService } from './storage.service';
-
-const MAX_SIGNED_URL_EXPIRY_SECONDS = 604800;
 
 @Injectable()
 export class FileAccessService {

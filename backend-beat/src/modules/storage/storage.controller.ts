@@ -52,7 +52,10 @@ export class StorageController {
         throw error;
       }
 
-      this.logger.error('Failed to generate signed URL', error);
+      this.logger.error(
+        'Failed to generate signed URL',
+        error instanceof Error ? error.stack : String(error),
+      );
       throw new InternalServerErrorException({
         message: StorageMessages.UNEXPECTED_ERROR,
       });

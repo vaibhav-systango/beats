@@ -41,6 +41,12 @@ export class CloudflareProvider implements IStorageProvider {
     this.signedUrlExpirySeconds =
       this.configService.get<number>('storage.signedUrlExpirySeconds') ?? 3600;
 
+    if (!this.endpoint || !accessKey || !secretKey) {
+      throw new Error(
+        'Cloudflare storage provider requires cloudflare.endpoint, cloudflare.accessKey, and cloudflare.secretKey to be configured.',
+      );
+    }
+
     this.client = new S3Client({
       region: 'auto',
       endpoint: this.endpoint,

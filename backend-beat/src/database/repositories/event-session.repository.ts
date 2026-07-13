@@ -33,7 +33,6 @@ export class EventSessionRepository extends Repository<EventSession> {
     mediaKey: string,
   ): Promise<MediaOwnershipContext | null> {
     const normalizedKey = mediaKey.replace(/^\/+/, '');
-    const suffix = `%/${normalizedKey}`;
 
     const row = await this.createQueryBuilder('session')
       .innerJoin('session.event', 'event')
@@ -45,44 +44,43 @@ export class EventSessionRepository extends Repository<EventSession> {
       .andWhere(
         `(
           session.event_session_medias->'cover'->>'url' = :key
-          OR session.event_session_medias->'cover'->>'url' LIKE :suffix
           OR EXISTS (
             SELECT 1
             FROM jsonb_array_elements(
               COALESCE(session.event_session_medias->'gallery', '[]'::jsonb)
             ) elem
-            WHERE elem->>'url' = :key OR elem->>'url' LIKE :suffix
+            WHERE elem->>'url' = :key
           )
           OR EXISTS (
             SELECT 1
             FROM jsonb_array_elements(
               COALESCE(session.event_session_medias->'venue_gallery', '[]'::jsonb)
             ) elem
-            WHERE elem->>'url' = :key OR elem->>'url' LIKE :suffix
+            WHERE elem->>'url' = :key
           )
           OR EXISTS (
             SELECT 1
             FROM jsonb_array_elements(
               COALESCE(session.event_session_medias->'videos', '[]'::jsonb)
             ) elem
-            WHERE elem->>'url' = :key OR elem->>'url' LIKE :suffix
+            WHERE elem->>'url' = :key OR elem->>'thumbnail_url' = :key
           )
           OR EXISTS (
             SELECT 1
             FROM jsonb_array_elements(
               COALESCE(session.event_session_medias->'documents', '[]'::jsonb)
             ) elem
-            WHERE elem->>'url' = :key OR elem->>'url' LIKE :suffix
+            WHERE elem->>'url' = :key
           )
           OR EXISTS (
             SELECT 1
             FROM jsonb_array_elements(
               COALESCE(session.event_session_medias->'legal_documents', '[]'::jsonb)
             ) elem
-            WHERE elem->>'url' = :key OR elem->>'url' LIKE :suffix
+            WHERE elem->>'url' = :key
           )
         )`,
-        { key: normalizedKey, suffix },
+        { key: normalizedKey },
       )
       .limit(1)
       .getRawOne<MediaOwnershipContext>();
