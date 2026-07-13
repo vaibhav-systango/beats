@@ -4,6 +4,7 @@ import { Client as MinioClient } from 'minio';
 import { ulid } from 'ulid';
 import { extname } from 'path';
 import * as mime from 'mime-types';
+import { resolveObjectKey } from '../helpers/storage-key.helper';
 import { IStorageProvider } from './storage.interface';
 
 @Injectable()
@@ -12,10 +13,13 @@ export class MinioProvider implements IStorageProvider {
   private readonly minioClient: MinioClient;
   private readonly bucketName: string;
   private readonly bucketBaseUrl: string;
+  private readonly signedUrlExpirySeconds: number;
 
   constructor(private readonly configService: ConfigService) {
     this.bucketName =
       this.configService.get<string>('minio.bucketName') || 'beats-events';
+    this.signedUrlExpirySeconds =
+      this.configService.get<number>('storage.signedUrlExpirySeconds') ?? 3600;
 
     const endpoint = this.configService.get<string>(
       'minio.endpoint',
@@ -87,9 +91,8 @@ export class MinioProvider implements IStorageProvider {
         { 'Content-Type': contentType },
       );
 
-      const publicUrl = `${this.bucketBaseUrl}/${filePath}`;
-      this.logger.log(`File uploaded to MinIO: ${publicUrl}`);
-      return publicUrl;
+      this.logger.log(`File uploaded to MinIO: key=${filePath}`);
+      return filePath;
     } catch (error) {
       this.logger.error(`MinIO upload failed: ${JSON.stringify(error)}`);
       throw error;
@@ -105,7 +108,7 @@ export class MinioProvider implements IStorageProvider {
       ),
     );
 
-    const uploadedUrls = results
+    const uploadedKeys = results
       .filter(
         (result): result is PromiseFulfilledResult<string> =>
           result.status === 'fulfilled',
@@ -118,24 +121,49 @@ export class MinioProvider implements IStorageProvider {
 
     if (failed) {
       this.logger.error(
-        `Partial upload failure. Rolling back ${uploadedUrls.length} files.`,
+        `Partial upload failure. Rolling back ${uploadedKeys.length} files.`,
       );
-      await Promise.allSettled(uploadedUrls.map((url) => this.deleteFile(url)));
+      await Promise.allSettled(
+        uploadedKeys.map((key) => this.deleteFile(key)),
+      );
       throw failed.reason;
     }
 
-    return uploadedUrls;
+    return uploadedKeys;
   }
 
-  async deleteFile(fileUrl: string): Promise<void> {
+  async deleteFile(fileUrlOrKey: string): Promise<void> {
     try {
-      const key = this.extractKeyFromUrl(fileUrl);
+      const key = resolveObjectKey(fileUrlOrKey, {
+        publicUrlBase: this.bucketBaseUrl,
+      });
       await this.minioClient.removeObject(this.bucketName, key);
-      this.logger.log(`Deleted file from MinIO: ${fileUrl}`);
+      this.logger.log(`Deleted file from MinIO: key=${key}`);
     } catch (error) {
       this.logger.error(`MinIO delete failed: ${JSON.stringify(error)}`);
       throw error;
     }
+  }
+
+  async generateSignedUrl(
+    key: string,
+    expiresInSeconds?: number,
+  ): Promise<string> {
+    if (!key?.trim()) {
+      throw new Error('Object key is required to generate a signed URL');
+    }
+
+    const normalizedKey = key.replace(/^\//, '');
+    const expiry = expiresInSeconds ?? this.signedUrlExpirySeconds;
+
+    const url = await this.minioClient.presignedGetObject(
+      this.bucketName,
+      normalizedKey,
+      expiry,
+    );
+
+    this.logger.log(`Generated MinIO signed URL for key=${normalizedKey}`);
+    return url;
   }
 
   getStorageInfo(): { type: string; bucket: string; baseUrl: string } {
@@ -157,21 +185,5 @@ export class MinioProvider implements IStorageProvider {
       return useSSLValue.toLowerCase() === 'true';
     }
     return false;
-  }
-
-  private extractKeyFromUrl(fileUrl: string): string {
-    const baseUrl = new URL(`${this.bucketBaseUrl}/`);
-    const url = new URL(fileUrl);
-
-    if (
-      url.origin !== baseUrl.origin ||
-      !url.pathname.startsWith(baseUrl.pathname)
-    ) {
-      throw new Error(
-        'File URL does not belong to the configured MinIO bucket',
-      );
-    }
-
-    return url.pathname.slice(baseUrl.pathname.length);
   }
 }

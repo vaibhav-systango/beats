@@ -1,9 +1,9 @@
 import { Injectable, BadRequestException, Logger, InternalServerErrorException } from '@nestjs/common';
 import { CreateEventSessionDto } from '../dto/create-session.dto';
 import { StorageService } from '../../storage/services/storage.service';
-import { UserRepository } from 'src/database/repositories/user.repository';
-import { EmailService } from 'src/providers/email/email-template';
-import { UserRole } from 'src/common/enums/user.enums';
+import { UserRepository } from '../../../database/repositories/user.repository';
+import { EmailService } from '../../../providers/email/email-template';
+import { UserRole } from '../../../common/enums/user.enums';
 import { EventMessages } from '../constants/events.constants';
 
 const YOUTUBE_VIDEO_ID_PATTERN =
@@ -23,6 +23,64 @@ export class EventsHelper {
   private extractYouTubeVideoId(url: string): string | null {
     const match = url.trim().match(YOUTUBE_VIDEO_ID_PATTERN);
     return match?.[1] ?? null;
+  }
+
+  private normalizeMediaReference(reference?: string): string | undefined {
+    if (!reference?.trim()) {
+      return reference;
+    }
+
+    return this.storageService.toObjectKey(reference);
+  }
+
+  normalizeStoredMediaReferences(dto: CreateEventSessionDto): void {
+    if (!dto.eventSessionMedias) {
+      return;
+    }
+
+    const medias = dto.eventSessionMedias;
+
+    if (medias.cover?.url) {
+      medias.cover.url = this.normalizeMediaReference(medias.cover.url)!;
+    }
+
+    for (const item of medias.gallery ?? []) {
+      if (item.url) {
+        item.url = this.normalizeMediaReference(item.url)!;
+      }
+    }
+
+    for (const item of medias.venue_gallery ?? []) {
+      if (item.url) {
+        item.url = this.normalizeMediaReference(item.url)!;
+      }
+    }
+
+    for (const item of medias.videos ?? []) {
+      if (item.mime_type === 'video/youtube') {
+        continue;
+      }
+
+      if (item.url) {
+        item.url = this.normalizeMediaReference(item.url)!;
+      }
+
+      if (item.thumbnail_url) {
+        item.thumbnail_url = this.normalizeMediaReference(item.thumbnail_url)!;
+      }
+    }
+
+    for (const item of medias.documents ?? []) {
+      if (item.url) {
+        item.url = this.normalizeMediaReference(item.url)!;
+      }
+    }
+
+    for (const item of medias.legal_documents ?? []) {
+      if (item.url) {
+        item.url = this.normalizeMediaReference(item.url)!;
+      }
+    }
   }
 
   normalizeEventSessionMedias(dto: CreateEventSessionDto): void {
@@ -180,6 +238,7 @@ export class EventsHelper {
     }
 
     this.normalizeEventSessionMedias(parsed);
+    this.normalizeStoredMediaReferences(parsed);
 
     return parsed;
   }
@@ -198,13 +257,13 @@ export class EventsHelper {
 
     for (const file of files) {
       if (file.fieldname === 'cover') {
-        const url = await this.storageService.uploadFile(
+        const objectKey = await this.storageService.uploadFile(
           file.buffer,
           file.originalname,
           `events/cover`,
         );
         dto.eventSessionMedias.cover = {
-          url,
+          url: objectKey,
           mime_type: file.mimetype,
           size: file.size,
           original_name: file.originalname,
@@ -212,7 +271,7 @@ export class EventsHelper {
       }
 
       if (file.fieldname === 'gallery') {
-        const url = await this.storageService.uploadFile(
+        const objectKey = await this.storageService.uploadFile(
           file.buffer,
           file.originalname,
           `events/gallery`,
@@ -222,7 +281,7 @@ export class EventsHelper {
         }
         const sort_order = dto.eventSessionMedias.gallery.length;
         dto.eventSessionMedias.gallery.push({
-          url,
+          url: objectKey,
           mime_type: file.mimetype,
           size: file.size,
           original_name: file.originalname,
@@ -231,7 +290,7 @@ export class EventsHelper {
       }
 
       if (file.fieldname === 'venueGallery') {
-        const url = await this.storageService.uploadFile(
+        const objectKey = await this.storageService.uploadFile(
           file.buffer,
           file.originalname,
           `events/venue_gallery`,
@@ -241,7 +300,7 @@ export class EventsHelper {
         }
         const sort_order = dto.eventSessionMedias.venue_gallery.length;
         dto.eventSessionMedias.venue_gallery.push({
-          url,
+          url: objectKey,
           mime_type: file.mimetype,
           size: file.size,
           original_name: file.originalname,
@@ -250,7 +309,7 @@ export class EventsHelper {
       }
 
       if (file.fieldname === 'videos') {
-        const url = await this.storageService.uploadFile(
+        const objectKey = await this.storageService.uploadFile(
           file.buffer,
           file.originalname,
           `events/videos`,
@@ -259,7 +318,7 @@ export class EventsHelper {
           dto.eventSessionMedias.videos = [];
         }
         dto.eventSessionMedias.videos.push({
-          url,
+          url: objectKey,
           mime_type: file.mimetype,
           size: file.size,
           thumbnail_url: '',
@@ -268,7 +327,7 @@ export class EventsHelper {
       }
 
       if (file.fieldname === 'documents') {
-        const url = await this.storageService.uploadFile(
+        const objectKey = await this.storageService.uploadFile(
           file.buffer,
           file.originalname,
           `events/documents`,
@@ -277,7 +336,7 @@ export class EventsHelper {
           dto.eventSessionMedias.documents = [];
         }
         dto.eventSessionMedias.documents.push({
-          url,
+          url: objectKey,
           mime_type: file.mimetype,
           size: file.size,
           original_name: file.originalname,
@@ -286,7 +345,7 @@ export class EventsHelper {
       }
 
       if (file.fieldname === 'legalDocuments') {
-        const url = await this.storageService.uploadFile(
+        const objectKey = await this.storageService.uploadFile(
           file.buffer,
           file.originalname,
           `events/legal_documents`,
@@ -295,7 +354,7 @@ export class EventsHelper {
           dto.eventSessionMedias.legal_documents = [];
         }
         dto.eventSessionMedias.legal_documents.push({
-          url,
+          url: objectKey,
           mime_type: file.mimetype,
           size: file.size,
           original_name: file.originalname,

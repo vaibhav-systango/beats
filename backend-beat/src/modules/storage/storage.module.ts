@@ -1,6 +1,9 @@
 import { Global, Module, Provider } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
+import { DatabaseModule } from '../../database/database.module';
+
+import { CloudflareProvider } from './providers/cloudflare.provider';
 import { MinioProvider } from './providers/minio.provider';
 import { S3Provider } from './providers/s3.provider';
 import {
@@ -8,6 +11,8 @@ import {
   STORAGE_PROVIDER,
 } from './providers/storage.interface';
 import { StorageService } from './services/storage.service';
+import { FileAccessService } from './services/file-access.service';
+import { StorageController } from './storage.controller';
 
 const StorageProviderFactory: Provider<IStorageProvider> = {
   provide: STORAGE_PROVIDER,
@@ -22,9 +27,11 @@ const StorageProviderFactory: Provider<IStorageProvider> = {
         return new S3Provider(configService);
       case 'minio':
         return new MinioProvider(configService);
+      case 'cloudflare':
+        return new CloudflareProvider(configService);
       default:
         throw new Error(
-          `Unsupported STORAGE_PROVIDER: ${provider}. Use "minio" or "s3".`,
+          `Unsupported STORAGE_PROVIDER: ${provider}. Use "minio", "s3", or "cloudflare".`,
         );
     }
   },
@@ -32,8 +39,9 @@ const StorageProviderFactory: Provider<IStorageProvider> = {
 
 @Global()
 @Module({
-  imports: [ConfigModule],
-  providers: [StorageService, StorageProviderFactory],
-  exports: [StorageService],
+  imports: [ConfigModule, DatabaseModule],
+  controllers: [StorageController],
+  providers: [StorageService, FileAccessService, StorageProviderFactory],
+  exports: [StorageService, FileAccessService],
 })
 export class StorageModule {}

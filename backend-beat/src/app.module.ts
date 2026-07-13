@@ -17,6 +17,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { BullModule } from '@nestjs/bullmq';
 import {
+  cloudflareConfiguration,
   minioConfiguration,
   s3Configuration,
   storageConfiguration,
@@ -34,6 +35,7 @@ import { SearchModule } from './modules/search/search.module';
         storageConfiguration,
         minioConfiguration,
         s3Configuration,
+        cloudflareConfiguration,
         loggerConfiguration,
       ],
     }),
