@@ -19,4 +19,17 @@ export class SessionTicketTypeRepository extends Repository<SessionTicketType> {
       where: { sessionId, status: TicketTypeStatus.ACTIVE },
     });
   }
+
+  /**
+   * ACTIVE ticket types for a session, cheapest first.
+   * Excludes INACTIVE and SOLD_OUT.
+   */
+  async findActiveTicketsBySessionIdOrderedByPrice(
+    sessionId: string,
+  ): Promise<SessionTicketType[]> {
+    return this.find({
+      where: { sessionId, status: TicketTypeStatus.ACTIVE },
+      order: { price: 'ASC' },
+    });
+  }
 }
