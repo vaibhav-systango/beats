@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { EventCategoriesModule } from './modules/event-categories/event-categories.module';
 import { EmailModule } from './providers/email/email.module';
 import { EventsModule } from './modules/events/events.module';
+import { TicketsModule } from './modules/tickets/tickets.module';
 import { CacheModule } from './providers/cache/cache.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { LoggerModule, Params } from 'nestjs-pino';
@@ -58,6 +59,7 @@ import { SearchModule } from './modules/search/search.module';
     UsersModule,
     EmailModule,
     EventsModule,
+    TicketsModule,
     CacheModule,
     StorageModule,
   ],
