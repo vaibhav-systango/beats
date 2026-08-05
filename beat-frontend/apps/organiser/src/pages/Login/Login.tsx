@@ -1,7 +1,11 @@
 import { OtpLoginPage } from '@beat/core'
 import { Zap } from '@beat/ui'
 
-import { ORGANISER_AUTH_CONSTANTS, ORGANISER_AUTH_COPY } from '@/constants'
+import {
+  ORGANISER_AUTH_CONSTANTS,
+  ORGANISER_AUTH_COPY,
+  ORGANISER_PATHS,
+} from '@/constants'
 import { useAuthStore } from '@/store'
 
 export function Login() {
@@ -19,6 +23,7 @@ export function Login() {
         heroImageUrl: ORGANISER_AUTH_COPY.HERO_IMAGE_URL,
         heroImageAlt: ORGANISER_AUTH_COPY.HERO_IMAGE_ALT,
         termsNotice: ORGANISER_AUTH_COPY.TERMS_NOTICE,
+        dashboardPath: ORGANISER_PATHS.EVENTS,
       }}
     />
   )

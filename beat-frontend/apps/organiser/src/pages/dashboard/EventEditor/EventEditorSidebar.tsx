@@ -1,3 +1,4 @@
+import { SignedMediaImage } from '@beat/api-client'
 import type { Event, EventSession } from '@beat/types'
 import { Button, Loader2 } from '@beat/ui'
 import { formatEventDateTime } from '@beat/utils'
@@ -93,7 +94,7 @@ export function EventEditorSidebar({
 
       <div className="mt-4 rounded-lg border border-border bg-card p-4">
         {session?.eventSessionMedias?.cover?.url ? (
-          <img
+          <SignedMediaImage
             src={session.eventSessionMedias.cover.url}
             alt=""
             className="mb-3 h-20 w-full rounded-md object-cover"

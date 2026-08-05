@@ -5,4 +5,5 @@ export const ERROR_CONSTANTS = {
   AUTH_VERIFY_OTP: 'Unable to verify OTP',
   USER_ONBOARDING: 'Unable to complete onboarding',
   EVENT_CATEGORIES: 'Unable to load categories',
+  STORAGE_SIGNED_URL: 'Unable to resolve media URL',
 } as const

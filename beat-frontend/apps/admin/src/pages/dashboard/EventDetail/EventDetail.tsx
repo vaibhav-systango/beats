@@ -1,5 +1,6 @@
 import {
   getApiErrorMessage,
+  SignedMediaImage,
   useAdminEventDetails,
   useAdminPendingEvents,
   useReviewEvent,
@@ -117,7 +118,7 @@ function SessionCard({ session }: { session: AdminEventSession }) {
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {ADMIN_EVENTS_COPY.DETAIL_BANNER_LABEL}
                 </p>
-                <img
+                <SignedMediaImage
                   src={session.bannerUrl}
                   alt=""
                   className="max-h-48 w-full rounded-md border border-border object-cover"
@@ -131,7 +132,7 @@ function SessionCard({ session }: { session: AdminEventSession }) {
                 </p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {session.galleryUrls.map((url) => (
-                    <img
+                    <SignedMediaImage
                       key={url}
                       src={url}
                       alt=""

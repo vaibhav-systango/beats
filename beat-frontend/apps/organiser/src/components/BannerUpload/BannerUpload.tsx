@@ -1,3 +1,4 @@
+import { SignedMediaImage } from '@beat/api-client'
 import { Input, Label } from '@beat/ui'
 import type { RefObject } from 'react'
 
@@ -47,8 +48,8 @@ export function BannerUpload({
 
       {hasBanner ? (
         <div className="group relative aspect-[2/1] w-full overflow-hidden rounded-lg border border-border">
-          <img
-            src={displayUrl ?? undefined}
+          <SignedMediaImage
+            src={displayUrl}
             alt="Event banner preview"
             className="h-full w-full object-cover"
           />
