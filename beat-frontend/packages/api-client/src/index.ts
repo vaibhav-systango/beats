@@ -58,6 +58,12 @@ export {
   getEventCategories,
   fetchEventCategories,
   useEventCategories,
+  fetchSignedUrl,
+  useSignedMediaUrl,
+  SignedMediaImage,
+  STORAGE_SIGNED_URL_MAX_EXPIRES_IN_SECONDS,
+  isDirectMediaUrl,
+  needsSignedMediaUrl,
 } from './services/common'
 export type {
   CreateEventInput,
@@ -77,6 +83,10 @@ export type {
   OnboardingLocation,
   EventCategoriesListResponse,
   GetEventCategoriesParams,
+  SignedUrlRequestBody,
+  SignedUrlResponse,
+  SignedMediaImageProps,
+  UseSignedMediaUrlResult,
 } from './services/common'
 
 export {

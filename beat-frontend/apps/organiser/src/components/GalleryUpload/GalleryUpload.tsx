@@ -1,3 +1,4 @@
+import { SignedMediaImage } from '@beat/api-client'
 import { Input } from '@beat/ui'
 import type { RefObject } from 'react'
 
@@ -95,7 +96,7 @@ export function GalleryUpload({
             key={image.id}
             className="relative h-28 w-28 shrink-0 overflow-hidden rounded-lg border border-border"
           >
-            <img
+            <SignedMediaImage
               src={image.url}
               alt={`Gallery image ${index + 1}`}
               className="h-full w-full object-cover"

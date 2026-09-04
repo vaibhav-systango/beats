@@ -19,4 +19,5 @@ export const API_CONSTANTS = {
   ADMIN_EVENTS_PENDING: `${API_V1_PREFIX}/events/admin/pending`,
   ADMIN_EVENTS_LIST: `${API_V1_PREFIX}/events/admin/events`,
   ADMIN_EVENT_REVIEW: (id: string) => `${API_V1_PREFIX}/events/admin/${id}/review`,
+  STORAGE_SIGNED_URL: `${API_V1_PREFIX}/storage/signed-url`,
 } as const

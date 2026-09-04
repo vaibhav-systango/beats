@@ -1,0 +1,17 @@
+import { Injectable } from '@nestjs/common';
+import { DataSource, Repository } from 'typeorm';
+import { Payment } from '../entities/payment.entity';
+
+@Injectable()
+export class PaymentRepository extends Repository<Payment> {
+  constructor(dataSource: DataSource) {
+    super(Payment, dataSource.createEntityManager());
+  }
+
+  findByIdempotency(
+    userId: string,
+    idempotencyKey: string,
+  ): Promise<Payment | null> {
+    return this.findOne({ where: { userId, idempotencyKey } });
+  }
+}

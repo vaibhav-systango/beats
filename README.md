@@ -104,6 +104,17 @@ MINIO_ENDPOINT=localhost
 MINIO_PORT=9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
+
+# Payments (switch provider without changing application code; currency is INR)
+PAYMENT_PROVIDER=stripe
+PAYMENT_PLATFORM_FEE_BPS=0
+PAYMENT_RESERVATION_TTL_MS=900000
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PUBLISHABLE_KEY=
+RAZORPAY_KEY_ID=
+RAZORPAY_KEY_SECRET=
+RAZORPAY_WEBHOOK_SECRET=
 ```
 
 Run database migrations:
@@ -233,10 +244,23 @@ pnpm dev:admin       # http://localhost:3002
 | `AWS_SECRET_ACCESS_KEY` | No** | AWS secret key for S3 |
 | `S3_PUBLIC_URL_BASE` | No | Public base URL for S3 objects |
 | `LOG_LEVEL` | No | Pino log level (default: `info`) |
+| `PAYMENT_PROVIDER` | No | Active payment adapter key (default: `stripe`). Register a new adapter to add a provider. |
+| `PAYMENT_PLATFORM_FEE_BPS` | No | Platform fee in basis points (default: `0`. 250 = 2.5%) |
+| `PAYMENT_RESERVATION_TTL_MS` | No | Inventory hold TTL before unpaid CREATED payments expire (default: `900000`) |
+| `STRIPE_SECRET_KEY` | No*** | Stripe secret key (`sk_...`) |
+| `STRIPE_WEBHOOK_SECRET` | No*** | Stripe webhook signing secret (`whsec_...`) |
+| `STRIPE_PUBLISHABLE_KEY` | No*** | Stripe publishable key returned to clients (`pk_...`) |
+| `RAZORPAY_KEY_ID` | No**** | Razorpay key id (`rzp_...`) |
+| `RAZORPAY_KEY_SECRET` | No**** | Razorpay key secret |
+| `RAZORPAY_WEBHOOK_SECRET` | No**** | Razorpay webhook HMAC secret |
 
 \*Twilio is optional for local dev — without it, OTP codes are written to the API console log. Required for real SMS/voice delivery in production.
 
 \*\*Required when `STORAGE_PROVIDER=s3`.
+
+\*\*\*Required when `PAYMENT_PROVIDER=stripe` (except free-ticket payments). Register webhook URL `POST /api/v1/payments/webhooks/stripe`. Never put Stripe secret keys in frontend env files.
+
+\*\*\*\*Required when `PAYMENT_PROVIDER=razorpay`. Register `POST /api/v1/payments/webhooks/razorpay`. Never put Razorpay key secret in frontend env files.
 
 Optional OTP tuning (defaults are fine for local dev):
 

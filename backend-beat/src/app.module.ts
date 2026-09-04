@@ -25,8 +25,10 @@ import {
 } from './config/storage.configuration';
 import { loggerConfiguration } from './config/logger.configuration';
 import { buildRedisOptions } from './config/redis.configuration';
+import { paymentConfiguration } from './config/payment.configuration';
 import { UsersModule } from './modules/users/users.module';
 import { SearchModule } from './modules/search/search.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -38,6 +40,7 @@ import { SearchModule } from './modules/search/search.module';
         s3Configuration,
         cloudflareConfiguration,
         loggerConfiguration,
+        paymentConfiguration,
       ],
     }),
     TypeOrmModule.forRoot(typeOrmConfig),
@@ -60,6 +63,7 @@ import { SearchModule } from './modules/search/search.module';
     EmailModule,
     EventsModule,
     TicketsModule,
+    PaymentsModule,
     CacheModule,
     StorageModule,
   ],

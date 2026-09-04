@@ -30,10 +30,12 @@ export function YouTubePreview({
       <p className="text-xs text-muted-foreground">{helperText}</p>
       <Input
         id={inputId}
+        type="url"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         placeholder={placeholder}
+        spellCheck={false}
         aria-invalid={Boolean(error)}
       />
 

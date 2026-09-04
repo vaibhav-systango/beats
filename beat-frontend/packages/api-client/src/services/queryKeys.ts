@@ -16,6 +16,11 @@ export const QUERY_KEYS = {
       list: (params: { limit?: number; offset?: number }) =>
         ['beat', 'common', 'event-categories', 'list', params] as const,
     },
+    STORAGE: {
+      all: () => ['beat', 'common', 'storage'] as const,
+      signedUrl: (key: string) =>
+        ['beat', 'common', 'storage', 'signedUrl', key] as const,
+    },
   },
   ORGANISER: {
     EVENTS: {

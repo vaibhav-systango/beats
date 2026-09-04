@@ -18,8 +18,15 @@ import { SessionTicketTypeRepository } from './repositories/session-ticket-type.
 import { Role } from './entities/role.entity';
 import { Permission } from './entities/permission.entity';
 import { RoutePermission } from './entities/route-permission.entity';
+import { Payment } from './entities/payment.entity';
+import { IssuedTicket } from './entities/issued-ticket.entity';
+import { Wallet } from './entities/wallet.entity';
+import { WalletLedgerEntry } from './entities/wallet-ledger-entry.entity';
+import { PaymentSplit } from './entities/payment-split.entity';
+import { PaymentWebhookEvent } from './entities/payment-webhook-event.entity';
 import { RoleRepository } from './repositories/role.repository';
 import { RoutePermissionRepository } from './repositories/route-permission.repository';
+import { PaymentRepository } from './repositories/payment.repository';
 
 @Module({
   imports: [
@@ -34,6 +41,12 @@ import { RoutePermissionRepository } from './repositories/route-permission.repos
       Role,
       Permission,
       RoutePermission,
+      Payment,
+      IssuedTicket,
+      Wallet,
+      WalletLedgerEntry,
+      PaymentSplit,
+      PaymentWebhookEvent,
     ]),
   ],
   providers: [
@@ -47,6 +60,7 @@ import { RoutePermissionRepository } from './repositories/route-permission.repos
     SessionTicketTypeRepository,
     RoleRepository,
     RoutePermissionRepository,
+    PaymentRepository,
   ],
   exports: [
     UserRepository,
@@ -59,6 +73,7 @@ import { RoutePermissionRepository } from './repositories/route-permission.repos
     SessionTicketTypeRepository,
     RoleRepository,
     RoutePermissionRepository,
+    PaymentRepository,
   ],
 })
 export class DatabaseModule {}

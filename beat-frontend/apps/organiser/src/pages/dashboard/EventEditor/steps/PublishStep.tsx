@@ -1,5 +1,6 @@
 import {
   getApiErrorMessage,
+  SignedMediaImage,
   useCreateEventSession,
   useEventCategories,
   useSubmitEvent,
@@ -168,7 +169,7 @@ export function PublishStep({ event, session, onBack }: PublishStepProps) {
         <div>
           <div className="rounded-lg border border-border p-4">
             {coverUrl ? (
-              <img
+              <SignedMediaImage
                 src={coverUrl}
                 alt=""
                 className="mb-3 h-24 w-full rounded-md object-cover"
