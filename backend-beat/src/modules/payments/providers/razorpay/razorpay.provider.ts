@@ -112,15 +112,20 @@ export class RazorpayPaymentProvider implements IPaymentProvider {
     input: VerifyPaymentInput,
   ): Promise<NormalizedPaymentEvent> {
     const paymentId = input.payload.providerPaymentId;
-    const orderId = input.payload.providerOrderId || input.providerOrderId;
+    const storedOrderId = input.providerOrderId;
+    const clientOrderId = input.payload.providerOrderId;
     const signature = input.payload.signature;
 
-    if (!paymentId || !orderId || !signature || !this.keySecret) {
+    if (!paymentId || !storedOrderId || !signature || !this.keySecret) {
       throw new BadRequestException(PaymentMessages.VERIFY_FAILED);
     }
 
+    if (clientOrderId && clientOrderId !== storedOrderId) {
+      throw new BadRequestException(PaymentMessages.VERIFY_ORDER_MISMATCH);
+    }
+
     const expected = createHmac('sha256', this.keySecret)
-      .update(`${orderId}|${paymentId}`)
+      .update(`${storedOrderId}|${paymentId}`)
       .digest('hex');
 
     if (!safeEqual(expected, signature)) {
@@ -132,7 +137,7 @@ export class RazorpayPaymentProvider implements IPaymentProvider {
       provider: this.name,
       providerEventId: `verify_${paymentId}`,
       providerPaymentId: paymentId,
-      providerOrderId: orderId,
+      providerOrderId: storedOrderId,
     };
   }
 

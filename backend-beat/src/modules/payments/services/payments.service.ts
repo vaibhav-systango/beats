@@ -74,7 +74,7 @@ export class PaymentsService {
     userId: string,
     dto: CreatePaymentDto,
   ): Promise<PaymentResponseDto> {
-    const idempotencyKey = dto.idempotencyKey?.trim() || ulid();
+    const idempotencyKey = dto.idempotencyKey ?? ulid();
 
     let saved: Payment;
     try {
@@ -205,39 +205,39 @@ export class PaymentsService {
       return this.toResponse(payment);
     }
 
-    await this.dataSource.transaction(async (manager) => {
-      const locked = await this.lockPayment(manager, payment.id);
-      if (locked.status === PaymentStatus.REFUNDED) {
-        return;
-      }
-      if (locked.status !== PaymentStatus.SUCCEEDED) {
-        throw new BadRequestException(PaymentMessages.REFUND_NOT_ALLOWED);
-      }
-      if (await this.payoutService.hasPaidPayout(manager, locked.id)) {
-        throw new ConflictException(PaymentMessages.REFUND_PAYOUT_PAID);
-      }
-    });
-
-    let refundId: string | null = payment.providerRefundId ?? null;
-    if (payment.amount > 0) {
-      this.assertActiveProvider(payment);
-      if (!payment.providerPaymentId) {
-        throw new BadRequestException(PaymentMessages.REFUND_FAILED);
-      }
-      const refunded = await this.paymentProvider.refundPayment({
-        providerPaymentId: payment.providerPaymentId,
-      });
-      refundId = refunded.refundId;
-    }
-
     const updated = await this.dataSource.transaction(async (manager) => {
       const locked = await this.lockPayment(manager, payment.id);
       if (locked.status === PaymentStatus.REFUNDED) {
         return locked;
       }
+      if (locked.status !== PaymentStatus.SUCCEEDED) {
+        throw new BadRequestException(PaymentMessages.REFUND_NOT_ALLOWED);
+      }
+
+      // Hold payout rows for this payment so settlement cannot interleave.
+      await manager.find(PaymentSplit, {
+        where: { paymentId: locked.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+
       if (await this.payoutService.hasPaidPayout(manager, locked.id)) {
         throw new ConflictException(PaymentMessages.REFUND_PAYOUT_PAID);
       }
+
+      let refundId: string | null = locked.providerRefundId ?? null;
+      if (locked.amount > 0 && !refundId) {
+        this.assertActiveProvider(locked);
+        if (!locked.providerPaymentId) {
+          throw new BadRequestException(PaymentMessages.REFUND_FAILED);
+        }
+        const refunded = await this.paymentProvider.refundPayment({
+          providerPaymentId: locked.providerPaymentId,
+        });
+        refundId = refunded.refundId;
+        locked.providerRefundId = refundId;
+        await manager.save(Payment, locked);
+      }
+
       await this.fulfillmentService.reverseFulfillment(manager, locked);
       locked.status = PaymentStatus.REFUNDED;
       locked.refundedAmount = locked.amount;
@@ -266,10 +266,17 @@ export class PaymentsService {
     try {
       await this.applyEvent(event);
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        this.logger.warn(
+          `Ignoring deterministic webhook rejection ${event.providerEventId}: ${error.message}`,
+        );
+        return { received: true };
+      }
       this.logger.error(
         `Failed to apply webhook ${event.providerEventId}`,
         error,
       );
+      throw error;
     }
 
     return { received: true };
@@ -291,6 +298,17 @@ export class PaymentsService {
           `Ignoring webhook ${event.providerEventId}; payment not found`,
         );
         return null;
+      }
+
+      if (
+        event.providerOrderId &&
+        payment.providerOrderId &&
+        event.providerOrderId !== payment.providerOrderId
+      ) {
+        this.logger.warn(
+          `Ignoring webhook ${event.providerEventId}; order mismatch event=${event.providerOrderId} payment=${payment.providerOrderId}`,
+        );
+        throw new BadRequestException(PaymentMessages.VERIFY_ORDER_MISMATCH);
       }
 
       if (event.amount != null && event.amount !== payment.amount) {
@@ -515,11 +533,22 @@ export class PaymentsService {
 
     const tickets = await manager.find(SessionTicketType, {
       where: { id: In(ticketTypeIds) },
-      relations: { session: { event: true } },
       lock: { mode: 'pessimistic_write' },
     });
     if (tickets.length !== ticketTypeIds.length) {
       throw new NotFoundException(EventMessages.TICKET_NOT_FOUND);
+    }
+
+    const ticketsWithRelations = await manager.find(SessionTicketType, {
+      where: { id: In(ticketTypeIds) },
+      relations: { session: { event: true } },
+    });
+    const relationsById = new Map(
+      ticketsWithRelations.map((ticket) => [ticket.id, ticket]),
+    );
+    for (const ticket of tickets) {
+      const related = relationsById.get(ticket.id);
+      ticket.session = related?.session as SessionTicketType['session'];
     }
 
     const quantityById = new Map(

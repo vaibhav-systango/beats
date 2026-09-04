@@ -81,14 +81,28 @@ export class StripePaymentProvider implements IPaymentProvider {
   async verifyPayment(
     input: VerifyPaymentInput,
   ): Promise<NormalizedPaymentEvent> {
-    const paymentIntentId =
-      input.payload.providerPaymentId || input.providerOrderId;
+    const storedOrderId = input.providerOrderId;
+    if (!storedOrderId) {
+      throw new BadRequestException(PaymentMessages.VERIFY_FAILED);
+    }
+
+    const clientPaymentId = input.payload.providerPaymentId;
+    const clientOrderId = input.payload.providerOrderId;
+    if (clientPaymentId && clientPaymentId !== storedOrderId) {
+      throw new BadRequestException(PaymentMessages.VERIFY_ORDER_MISMATCH);
+    }
+    if (clientOrderId && clientOrderId !== storedOrderId) {
+      throw new BadRequestException(PaymentMessages.VERIFY_ORDER_MISMATCH);
+    }
 
     try {
       const paymentIntent =
-        await this.stripe.paymentIntents.retrieve(paymentIntentId);
+        await this.stripe.paymentIntents.retrieve(storedOrderId);
       return this.mapPaymentIntent(paymentIntent, `verify_${paymentIntent.id}`);
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       this.logger.error('Stripe PaymentIntent retrieve failed', error);
       throw new BadRequestException(PaymentMessages.VERIFY_FAILED);
     }

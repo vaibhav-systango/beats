@@ -28,7 +28,7 @@ export enum LedgerReason {
 @Index('IDX_wallet_ledger_payment_id', ['paymentId'])
 @Index(
   'UQ_wallet_ledger_idempotent',
-  ['walletId', 'paymentId', 'reason', 'direction'],
+  ['walletId', 'paymentId', 'reason', 'direction', 'splitId'],
   {
     unique: true,
   },

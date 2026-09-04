@@ -55,7 +55,7 @@ export class CreatePaymentCommerceTables1783600000000 implements MigrationInterf
       `CREATE TYPE "public"."wallets_owner_type_enum" AS ENUM('PLATFORM', 'USER')`,
     );
     await queryRunner.query(
-      `CREATE TABLE "wallets" ("id" character(26) NOT NULL, "owner_type" "public"."wallets_owner_type_enum" NOT NULL, "owner_user_id" character(26), "balance_paise" integer NOT NULL DEFAULT 0, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, CONSTRAINT "PK_wallets_id" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "wallets" ("id" character(26) NOT NULL, "owner_type" "public"."wallets_owner_type_enum" NOT NULL, "owner_user_id" character(26), "balance_paise" bigint NOT NULL DEFAULT 0, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, CONSTRAINT "PK_wallets_id" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "UQ_wallets_owner" ON "wallets" ("owner_type", "owner_user_id") NULLS NOT DISTINCT`,
@@ -108,7 +108,7 @@ export class CreatePaymentCommerceTables1783600000000 implements MigrationInterf
       `CREATE INDEX "IDX_wallet_ledger_payment_id" ON "wallet_ledger_entries" ("payment_id")`,
     );
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "UQ_wallet_ledger_idempotent" ON "wallet_ledger_entries" ("wallet_id", "payment_id", "reason", "direction")`,
+      `CREATE UNIQUE INDEX "UQ_wallet_ledger_idempotent" ON "wallet_ledger_entries" ("wallet_id", "payment_id", "reason", "direction", "split_id") NULLS NOT DISTINCT`,
     );
     await queryRunner.query(
       `ALTER TABLE "wallet_ledger_entries" ADD CONSTRAINT "FK_wallet_ledger_wallet_id" FOREIGN KEY ("wallet_id") REFERENCES "wallets"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,

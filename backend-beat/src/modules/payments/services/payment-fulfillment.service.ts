@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EntityManager, In } from 'typeorm';
+import { EntityManager, In, IsNull } from 'typeorm';
 import {
   IssuedTicket,
   IssuedTicketStatus,
@@ -203,6 +203,7 @@ export class PaymentFulfillmentService {
         where: {
           walletId: credit.walletId,
           paymentId: payment.id,
+          splitId: credit.splitId ?? IsNull(),
           reason: LedgerReason.REFUND_CLAWBACK,
           direction: LedgerDirection.DEBIT,
         },

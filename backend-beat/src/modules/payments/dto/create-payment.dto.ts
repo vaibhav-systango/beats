@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
@@ -9,6 +9,8 @@ import {
   Max,
   MaxLength,
   Min,
+  MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -37,10 +39,14 @@ export class CreatePaymentDto {
   @ApiPropertyOptional({
     example: 'checkout-01ARZ3NDEKTSV4RRFFQ69G5FAX',
     description:
-      'Client-generated key. The same user + key returns the original payment instead of creating another.',
+      'Client-generated key. The same user + key returns the original payment instead of creating another. Whitespace-only values are rejected.',
   })
-  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @ValidateIf((_, value) => value !== undefined && value !== null)
   @IsString()
+  @MinLength(1)
   @MaxLength(64)
   idempotencyKey?: string;
 
@@ -55,7 +61,7 @@ export class CreatePaymentDto {
   referrerUserId?: string;
 
   @ApiPropertyOptional({
-    example: '01ARZ3NDEKTSV4RRFFQ69G5PRO',
+    example: '01ARZ3NDEKTSV4RRFFQ69G5PRM',
     description:
       'Required when any selected session has promoter commission enabled.',
   })

@@ -71,7 +71,7 @@ export class WalletService {
     if (!locked) {
       throw new Error(`Wallet ${wallet.id} not found`);
     }
-    locked.balancePaise += input.amountPaise;
+    locked.balancePaise = Number(locked.balancePaise) + input.amountPaise;
     await manager.save(Wallet, locked);
     return manager.save(
       WalletLedgerEntry,
@@ -99,7 +99,7 @@ export class WalletService {
     if (!locked) {
       throw new Error(`Wallet ${wallet.id} not found`);
     }
-    locked.balancePaise -= input.amountPaise;
+    locked.balancePaise = Number(locked.balancePaise) - input.amountPaise;
     await manager.save(Wallet, locked);
     return manager.save(
       WalletLedgerEntry,

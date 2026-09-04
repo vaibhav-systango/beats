@@ -11,6 +11,7 @@ import {
   WalletLedgerEntry,
 } from '../../../database/entities/wallet-ledger-entry.entity';
 import { Wallet } from '../../../database/entities/wallet.entity';
+import { PaymentConstants } from '../constants/payments.constants';
 import { WalletService } from './wallet.service';
 
 @Injectable()
@@ -41,14 +42,20 @@ export class PayoutService {
     return !!paid;
   }
 
-  async settleScheduled(manager: EntityManager): Promise<{
+  async settleScheduled(
+    manager: EntityManager,
+    batchSize = PaymentConstants.SETTLEMENT_BATCH_SIZE,
+  ): Promise<{
     settlementBatchId: string;
     paidCount: number;
     paidAmountPaise: number;
   }> {
     const settlementBatchId = ulid();
+    const limit = Math.max(1, Math.trunc(batchSize));
     const splits = await manager.find(PaymentSplit, {
       where: { payoutStatus: PayoutStatus.SCHEDULED },
+      order: { createdAt: 'ASC' },
+      take: limit,
       lock: { mode: 'pessimistic_write' },
     });
 
@@ -60,6 +67,7 @@ export class PayoutService {
         where: {
           walletId: split.walletId,
           paymentId: split.paymentId,
+          splitId: split.id,
           reason: LedgerReason.PAYOUT_SETTLEMENT,
           direction: LedgerDirection.DEBIT,
         },

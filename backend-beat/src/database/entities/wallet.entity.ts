@@ -45,8 +45,9 @@ export class Wallet {
 
   @Column({
     name: 'balance_paise',
-    type: 'integer',
+    type: 'bigint',
     default: 0,
+    transformer: bigintTransformer,
   })
   balancePaise: number;
 

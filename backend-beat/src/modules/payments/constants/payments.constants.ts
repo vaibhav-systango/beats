@@ -25,10 +25,13 @@ export const PaymentMessages = {
     'This payment cannot be refunded because a payout has already been settled.',
   ADMIN_ONLY: 'Only admin accounts can access this resource.',
   CURRENCY_MISMATCH: 'Only INR payments are supported.',
+  VERIFY_ORDER_MISMATCH:
+    'Provider order id does not match the payment being verified.',
 };
 
 export const PaymentConstants = {
   CREATE_LIMIT: 10,
   CREATE_TTL_MS: 60000,
   CURRENCY: 'INR',
+  SETTLEMENT_BATCH_SIZE: 50,
 };
