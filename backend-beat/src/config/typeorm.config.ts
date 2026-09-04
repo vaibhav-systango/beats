@@ -11,6 +11,12 @@ import { SessionTicketType } from '../database/entities/session-ticket-type.enti
 import { Permission } from '../database/entities/permission.entity';
 import { RoutePermission } from '../database/entities/route-permission.entity';
 import { UserSession } from '../database/entities/user-session.entity';
+import { Payment } from '../database/entities/payment.entity';
+import { IssuedTicket } from '../database/entities/issued-ticket.entity';
+import { Wallet } from '../database/entities/wallet.entity';
+import { WalletLedgerEntry } from '../database/entities/wallet-ledger-entry.entity';
+import { PaymentSplit } from '../database/entities/payment-split.entity';
+import { PaymentWebhookEvent } from '../database/entities/payment-webhook-event.entity';
 
 dotenv.config();
 export const typeOrmConfig: DataSourceOptions = {
@@ -32,6 +38,12 @@ export const typeOrmConfig: DataSourceOptions = {
     Permission,
     RoutePermission,
     UserSession,
+    Payment,
+    IssuedTicket,
+    Wallet,
+    WalletLedgerEntry,
+    PaymentSplit,
+    PaymentWebhookEvent,
   ],
   migrations: [__dirname + '/../database/migrations/*.{ts,js}'],
 
