@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import {
   fetchEvents,
   fetchPublicEventById,
+  isNotFoundApiError,
   SignedMediaImage,
 } from '@beat/api-client'
 import { formatEventDateTime } from '@beat/utils'
@@ -39,8 +40,11 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
 
   try {
     event = await fetchPublicEventById(params.id)
-  } catch {
-    notFound()
+  } catch (error) {
+    if (isNotFoundApiError(error)) {
+      notFound()
+    }
+    throw error
   }
 
   if (!event?.id) {

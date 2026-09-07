@@ -67,6 +67,16 @@ export function parseWhenFilter(value: string | undefined): EventsWhenFilter {
   return 'all'
 }
 
+/** Server-side date bounds for the public discovery `dateFrom` / `dateTo` query. */
+export function getWhenDateRange(
+  when: EventsWhenFilter,
+  now = new Date()
+): { dateFrom?: number; dateTo?: number } {
+  if (when === 'all') return {}
+  const range = when === 'this-week' ? getThisWeekRange(now) : getThisWeekendRange(now)
+  return { dateFrom: range.from, dateTo: range.to }
+}
+
 export function formatTicketPrice(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',

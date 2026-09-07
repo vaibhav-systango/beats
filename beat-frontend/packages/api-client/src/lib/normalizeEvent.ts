@@ -58,8 +58,15 @@ function deriveVenue(raw: RawEvent): string | undefined {
   }
 
   const address = firstSession(raw)?.eventAddress
-  const venue = address?.venueName ?? address?.formattedAddress
-  return typeof venue === 'string' && venue.trim() ? venue.trim() : undefined
+  const venueName = address?.venueName
+  if (typeof venueName === 'string' && venueName.trim()) {
+    return venueName.trim()
+  }
+
+  const formattedAddress = address?.formattedAddress
+  return typeof formattedAddress === 'string' && formattedAddress.trim()
+    ? formattedAddress.trim()
+    : undefined
 }
 
 function deriveCoverImageUrl(raw: RawEvent): string | undefined {

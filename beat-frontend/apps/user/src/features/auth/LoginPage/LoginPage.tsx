@@ -46,9 +46,7 @@ export function LoginPage() {
   const searchParams = useSearchParams()
   const nextPath = searchParams.get('next')
   const safeNext =
-    nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')
-      ? nextPath
-      : USER_ROUTES.HOME
+    nextPath && /^\/(?![\\/])/.test(nextPath) ? nextPath : USER_ROUTES.HOME
 
   const [step, setStep] = useState<LoginStep>('phone')
   const [phoneNumber, setPhoneNumber] = useState('')

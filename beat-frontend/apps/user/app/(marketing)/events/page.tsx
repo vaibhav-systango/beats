@@ -5,6 +5,7 @@ import { EVENTS_COPY, NAV_LABELS, PAGE_METADATA } from '@/constants'
 import {
   createPageMetadata,
   filterEventsByWhen,
+  getWhenDateRange,
   parseWhenFilter,
 } from '@/lib'
 
@@ -15,18 +16,24 @@ export const metadata = createPageMetadata(
 
 type EventsPageProps = {
   searchParams?: {
-    q?: string
-    city?: string
-    category?: string
-    when?: string
+    q?: string | string[]
+    city?: string | string[]
+    category?: string | string[]
+    when?: string | string[]
   }
 }
 
+function getSearchParam(value: string | string[] | undefined): string | undefined {
+  const normalized = Array.isArray(value) ? value[0] : value
+  return normalized?.trim() || undefined
+}
+
 export default async function EventsPage({ searchParams }: EventsPageProps) {
-  const q = searchParams?.q?.trim() || undefined
-  const city = searchParams?.city?.trim() || undefined
-  const category = searchParams?.category?.trim() || undefined
-  const when = parseWhenFilter(searchParams?.when)
+  const q = getSearchParam(searchParams?.q)
+  const city = getSearchParam(searchParams?.city)
+  const category = getSearchParam(searchParams?.category)
+  const when = parseWhenFilter(getSearchParam(searchParams?.when))
+  const dateRange = getWhenDateRange(when)
 
   let events = { data: [] as Awaited<ReturnType<typeof fetchEvents>>['data'] }
   try {
@@ -36,6 +43,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       ...(q ? { search: q } : {}),
       ...(city ? { city } : {}),
       ...(category ? { category } : {}),
+      ...dateRange,
     })
   } catch {
     // API not available
