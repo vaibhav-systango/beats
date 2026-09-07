@@ -14,11 +14,38 @@ export const useEventsList = (
     page = PAGINATION_CONSTANTS.DEFAULT_PAGE,
     limit = PAGINATION_CONSTANTS.EVENTS_LIST_LIMIT,
     status,
+    search,
+    city,
+    category,
+    dateFrom,
+    dateTo,
+    offset,
   } = params
 
   return useQuery({
-    queryKey: QUERY_KEYS.COMMON.EVENTS.list({ page, limit, status }),
-    queryFn: () => fetchEvents({ page, limit, status }),
+    queryKey: QUERY_KEYS.COMMON.EVENTS.list({
+      page,
+      limit,
+      status,
+      search,
+      city,
+      category,
+      dateFrom,
+      dateTo,
+      offset,
+    }),
+    queryFn: () =>
+      fetchEvents({
+        page,
+        limit,
+        status,
+        search,
+        city,
+        category,
+        dateFrom,
+        dateTo,
+        offset,
+      }),
     placeholderData: (previousData) => previousData,
     select: (response): EventsListView => ({
       data: response.data,

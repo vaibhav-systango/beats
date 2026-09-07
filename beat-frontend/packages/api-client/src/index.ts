@@ -47,6 +47,7 @@ export {
   fetchEvents,
   getEvents,
   createEvent,
+  fetchPublicEventById,
   useEventsList,
   useCreateEventMutation,
   sendOtp,
