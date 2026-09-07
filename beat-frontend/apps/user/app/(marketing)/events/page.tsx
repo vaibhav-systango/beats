@@ -1,34 +1,68 @@
 import { fetchEvents, PAGINATION_CONSTANTS } from '@beat/api-client'
 
-import { EventCard } from '@/components'
-import { createPageMetadata } from '@/lib'
-import { NAV_LABELS, PAGE_METADATA, EVENT_STATUS } from '@/constants'
+import { EventCard, EventsBrowseToolbar } from '@/components'
+import { EVENTS_COPY, NAV_LABELS, PAGE_METADATA } from '@/constants'
+import {
+  createPageMetadata,
+  filterEventsByWhen,
+  parseWhenFilter,
+} from '@/lib'
 
 export const metadata = createPageMetadata(
   PAGE_METADATA.EVENTS.title,
   PAGE_METADATA.EVENTS.description
 )
 
-export default async function EventsPage() {
+type EventsPageProps = {
+  searchParams?: {
+    q?: string
+    city?: string
+    category?: string
+    when?: string
+  }
+}
+
+export default async function EventsPage({ searchParams }: EventsPageProps) {
+  const q = searchParams?.q?.trim() || undefined
+  const city = searchParams?.city?.trim() || undefined
+  const category = searchParams?.category?.trim() || undefined
+  const when = parseWhenFilter(searchParams?.when)
+
   let events = { data: [] as Awaited<ReturnType<typeof fetchEvents>>['data'] }
   try {
     events = await fetchEvents({
       page: PAGINATION_CONSTANTS.DEFAULT_PAGE,
       limit: PAGINATION_CONSTANTS.EVENTS_LIST_LIMIT,
-      status: EVENT_STATUS.PUBLISHED,
+      ...(q ? { search: q } : {}),
+      ...(city ? { city } : {}),
+      ...(category ? { category } : {}),
     })
   } catch {
     // API not available
   }
 
+  const filtered = filterEventsByWhen(events.data, when)
+
   return (
     <section className="mx-auto max-w-6xl px-6 py-12">
-      <h1 className="mb-8 text-3xl font-bold">{NAV_LABELS.EVENTS}</h1>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {events.data.map((event) => (
-          <EventCard key={event.id} event={event} />
-        ))}
-      </div>
+      <h1 className="mb-2 text-3xl font-bold text-foreground">{NAV_LABELS.EVENTS}</h1>
+      <p className="mb-8 text-muted-foreground">
+        Search and filter live experiences near you.
+      </p>
+
+      <EventsBrowseToolbar q={q} city={city} category={category} when={when} />
+
+      {filtered.length === 0 ? (
+        <p className="rounded-lg border border-border bg-card px-4 py-10 text-center text-muted-foreground">
+          {EVENTS_COPY.EMPTY}
+        </p>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
+        </div>
+      )}
     </section>
   )
 }

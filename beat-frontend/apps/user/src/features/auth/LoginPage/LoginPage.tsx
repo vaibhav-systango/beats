@@ -20,7 +20,7 @@ import {
   Zap,
 } from '@/components/ui'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 
 import {
@@ -43,6 +43,12 @@ type LoginStep = 'phone' | 'otp'
 
 export function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const nextPath = searchParams.get('next')
+  const safeNext =
+    nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')
+      ? nextPath
+      : USER_ROUTES.HOME
 
   const [step, setStep] = useState<LoginStep>('phone')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -111,7 +117,7 @@ export function LoginPage() {
           if (data.account.onboardingStatus === 'PROFILE_PENDING') {
             router.push(USER_ROUTES.ONBOARDING)
           } else {
-            router.push(USER_ROUTES.HOME)
+            router.push(safeNext)
           }
         },
         onError: (err) => setError(err.message || AUTH_ERROR_MESSAGES.VERIFY_OTP_FAILED),
