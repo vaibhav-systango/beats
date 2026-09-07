@@ -36,14 +36,14 @@ export function BrandLogo({
   return (
     <div className={cn('flex min-w-0 items-center gap-2', className)}>
       <img
-        src={beatLight}
+        src={beatLight.src}
         alt={alt}
         className="h-7 w-auto max-w-full dark:hidden"
         width={120}
         height={28}
       />
       <img
-        src={beatDark}
+        src={beatDark.src}
         alt={alt}
         className="hidden h-7 w-auto max-w-full dark:block"
         width={120}

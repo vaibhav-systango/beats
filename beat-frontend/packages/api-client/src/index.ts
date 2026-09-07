@@ -30,10 +30,13 @@ export {
 export type { NormalizableSchema } from './lib/normalizeApiResponse'
 
 export {
+  ApiClientError,
   extractApiErrorMessage,
   apiFailureMessage,
   getApiErrorMessage,
+  getApiErrorStatusCode,
   isAxiosLikeWithResponseData,
+  isNotFoundApiError,
   rethrowWithApiMessage,
 } from './lib/apiErrorMessage'
 
@@ -47,6 +50,7 @@ export {
   fetchEvents,
   getEvents,
   createEvent,
+  fetchPublicEventById,
   useEventsList,
   useCreateEventMutation,
   sendOtp,

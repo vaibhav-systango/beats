@@ -1,3 +1,5 @@
 export { EventCard } from './EventCard/EventCard'
 export type { EventCardProps } from './EventCard/EventCard'
 export { Navbar } from './Navbar/Navbar'
+export { HomeSearch } from './HomeSearch/HomeSearch'
+export { EventsBrowseToolbar } from './EventsBrowseToolbar/EventsBrowseToolbar'

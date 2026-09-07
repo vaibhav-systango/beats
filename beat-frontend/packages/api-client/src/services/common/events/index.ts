@@ -1,4 +1,9 @@
-export { fetchEvents, getEvents, createEvent } from './events.api'
+export {
+  fetchEvents,
+  getEvents,
+  createEvent,
+  fetchPublicEventById,
+} from './events.api'
 export { useEventsList, useCreateEventMutation } from './events.queries'
 export type {
   CreateEventInput,

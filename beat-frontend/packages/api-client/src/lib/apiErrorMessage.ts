@@ -39,15 +39,54 @@ export function apiFailureMessage(payload: unknown, fallback: string): string {
   return extractApiErrorMessage(payload) ?? fallback
 }
 
+/** Error that keeps HTTP status after axios normalize / message promotion. */
+export class ApiClientError extends Error {
+  readonly statusCode?: number
+
+  constructor(message: string, statusCode?: number) {
+    super(message)
+    this.name = 'ApiClientError'
+    this.statusCode = statusCode
+  }
+}
+
+function readStatusCode(error: unknown): number | undefined {
+  if (error instanceof ApiClientError) {
+    return error.statusCode
+  }
+
+  if (typeof error === 'object' && error !== null && 'statusCode' in error) {
+    const statusCode = (error as { statusCode?: unknown }).statusCode
+    if (typeof statusCode === 'number') return statusCode
+  }
+
+  if (isAxiosLikeWithResponseData(error)) {
+    const status = (error.response as { status?: unknown }).status
+    if (typeof status === 'number') return status
+  }
+
+  return undefined
+}
+
+export function getApiErrorStatusCode(error: unknown): number | undefined {
+  return readStatusCode(error)
+}
+
+export function isNotFoundApiError(error: unknown): boolean {
+  return readStatusCode(error) === 404
+}
+
 /** Prefer API `message` on axios failures; otherwise rethrow the original error. */
 export function rethrowWithApiMessage(error: unknown): never {
+  const statusCode = readStatusCode(error)
+
   if (isAxiosLikeWithResponseData(error) && error.response.data != null) {
     const apiMessage = extractApiErrorMessage(error.response.data)
-    if (apiMessage) throw new Error(apiMessage)
+    if (apiMessage) throw new ApiClientError(apiMessage, statusCode)
   }
 
   const apiMessage = extractApiErrorMessage(error)
-  if (apiMessage) throw new Error(apiMessage)
+  if (apiMessage) throw new ApiClientError(apiMessage, statusCode)
 
   throw error
 }
@@ -59,5 +98,13 @@ export function getApiErrorMessage(error: unknown): string | null {
     if (fromResponse) return fromResponse
   }
 
-  return extractApiErrorMessage(error)
+  const fromPayload = extractApiErrorMessage(error)
+  if (fromPayload) return fromPayload
+
+  if (error instanceof Error) {
+    const trimmed = error.message.trim()
+    return trimmed.length ? trimmed : null
+  }
+
+  return null
 }
