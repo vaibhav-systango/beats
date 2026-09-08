@@ -1,6 +1,48 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentStatus } from '../../../database/entities/payment.entity';
 import type { PaymentClientPayload } from '../providers/payment-provider.interface';
+import { IssuedTicketPublicDto } from './issued-ticket-public.dto';
+
+export class IssuedTicketReceiptItemDto {
+  @ApiProperty({ example: '01ARZ3NDEKTSV4RRFFQ69G5TIX' })
+  id: string;
+
+  @ApiProperty({ example: 'VALID' })
+  status: string;
+
+  @ApiProperty({ example: '01TKT00000000000000000001' })
+  ticketTypeId: string;
+
+  @ApiProperty({ example: 'General Admission' })
+  ticketTypeName: string;
+
+  @ApiProperty({ example: 499 })
+  price: number;
+
+  @ApiProperty({ example: '01SES00000000000000000045' })
+  sessionId: string;
+
+  @ApiPropertyOptional({ example: 'Night One', nullable: true })
+  sessionTitle?: string | null;
+
+  @ApiPropertyOptional({ example: 1751625600000, nullable: true })
+  sessionStartAt?: number | null;
+
+  @ApiProperty({ example: '01EVT00000000000000000023' })
+  eventId: string;
+
+  @ApiProperty({ example: 'Summer Beats Festival' })
+  eventTitle: string;
+
+  @ApiPropertyOptional({ example: 'Mumbai', nullable: true })
+  city?: string | null;
+
+  @ApiPropertyOptional({ example: 'NSCI Dome', nullable: true })
+  venue?: string | null;
+
+  @ApiProperty({ example: 1751625600000 })
+  createdAt: number;
+}
 
 export class PaymentResponseDto {
   @ApiProperty({ example: '01ARZ3NDEKTSV4RRFFQ69G5FAX' })
@@ -39,4 +81,12 @@ export class PaymentResponseDto {
       'Provider checkout payload. Omitted on GET. Never includes secret API keys.',
   })
   client?: PaymentClientPayload | null;
+
+  @ApiPropertyOptional({
+    type: [IssuedTicketReceiptItemDto],
+    description: 'Issued tickets when payment has succeeded.',
+  })
+  tickets?: IssuedTicketReceiptItemDto[];
 }
+
+export { IssuedTicketPublicDto };
