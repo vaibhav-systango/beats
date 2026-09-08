@@ -56,8 +56,7 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
   const locationLabel =
     [event.venue, event.city].filter(Boolean).join(' · ') ||
     EVENT_DETAIL_COPY.VENUE_TBA
-  // Checkout/payment is intentionally not on this branch — CTA scrolls to sessions.
-  const ticketsHref = '#sessions'
+  const ticketsHref = USER_ROUTES.EVENT_TICKETS(event.id)
   const priceLabel =
     typeof event.priceFrom === 'number'
       ? `${EVENT_DETAIL_COPY.TICKETS_FROM} ${formatTicketPrice(event.priceFrom)}`

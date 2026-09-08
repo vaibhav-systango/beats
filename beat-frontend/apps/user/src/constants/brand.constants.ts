@@ -25,6 +25,18 @@ export const PAGE_METADATA = {
     title: 'Event',
     description: 'Event details, schedule, and tickets on Beats.',
   },
+  EVENT_TICKETS: {
+    title: 'Tickets',
+    description: 'Get tickets for this event on Beats.',
+  },
+  PAYMENT_RECEIPT: {
+    title: 'Payment receipt',
+    description: 'Your Beats ticket receipt and QR codes.',
+  },
+  TICKET: {
+    title: 'Ticket',
+    description: 'Beats ticket details',
+  },
   LOGIN: {
     title: 'Sign in',
     description: 'Sign in to Beats with your phone number',
@@ -69,6 +81,51 @@ export const EVENT_DETAIL_COPY = {
   DATE_TBA: 'Date TBA',
   VENUE_TBA: 'Venue TBA',
   BACK_TO_EVENTS: 'Back to events',
+} as const
+
+export const EVENT_TICKETS_COPY = {
+  TITLE: 'Get tickets',
+  DESCRIPTION: 'Choose your tickets and pay securely with Razorpay.',
+  BACK_TO_EVENT: 'Back to event',
+  BACK_TO_EVENTS: 'Back to events',
+  SESSION_LABEL: 'Session',
+  LOADING: 'Loading event…',
+  LOADING_TICKETS: 'Loading tickets…',
+  EMPTY: 'No tickets are available for this session yet.',
+  EVENT_MISSING: 'Event not found.',
+  SELECT_TICKETS: 'Select at least one ticket to continue.',
+  TOTAL: 'Total',
+  PAY_CTA: 'Pay with Razorpay',
+  PROCESSING: 'Processing…',
+  SIGN_IN_HINT: 'You’ll sign in before checkout if needed.',
+  SUCCESS: 'Payment successful — your tickets are confirmed.',
+  SUCCESS_FREE: 'Booking confirmed — no payment required.',
+} as const
+
+export const RECEIPT_COPY = {
+  TITLE: 'Payment receipt',
+  SUBTITLE: 'Show these QR codes at the entrance.',
+  LOADING: 'Loading receipt…',
+  MISSING: 'Receipt not found.',
+  PAID: 'Paid',
+  FREE: 'Confirmed',
+  TICKETS_HEADING: 'Your tickets',
+  TICKETS_PENDING: 'Tickets are being issued. Refresh in a moment.',
+  SCAN_HINT: 'Scan any QR to open that ticket.',
+  BACK_HOME: 'Back to home',
+  BACK_EVENTS: 'Browse events',
+  TICKET_ID: 'Ticket ID',
+  STATUS: 'Status',
+  SIGN_IN_REQUIRED: 'Sign in to view this receipt.',
+} as const
+
+export const TICKET_SCAN_COPY = {
+  TITLE: 'Ticket',
+  LOADING: 'Loading ticket…',
+  MISSING: 'This ticket could not be found.',
+  VALID: 'Valid ticket',
+  VOID: 'Void / refunded',
+  BACK_HOME: 'Back to home',
 } as const
 
 export const ONBOARDING_COPY = {
