@@ -53,6 +53,7 @@ import { InventoryService } from './inventory.service';
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
   private readonly reservationTtlMs: number;
+  private readonly razorpayKeyId: string;
 
   constructor(
     @Inject(PAYMENT_PROVIDER)
@@ -68,6 +69,8 @@ export class PaymentsService {
     this.reservationTtlMs = Number(
       configService.get<number>('payment.reservationTtlMs') ?? 900_000,
     );
+    this.razorpayKeyId =
+      configService.get<string>('payment.razorpay.keyId')?.trim() ?? '';
   }
 
   async createPayment(
@@ -105,6 +108,23 @@ export class PaymentsService {
           idempotencyKey,
         );
         if (duplicate) {
+          if (duplicate.status === PaymentStatus.SUCCEEDED) {
+            const response = this.toResponse(
+              duplicate,
+              duplicate.amount === 0 ? null : undefined,
+            );
+            response.tickets = await this.loadReceiptTickets(duplicate.id);
+            return response;
+          }
+          if (
+            duplicate.providerOrderId ||
+            duplicate.status === PaymentStatus.PENDING
+          ) {
+            return this.toResponse(
+              duplicate,
+              this.resumeClientPayload(duplicate),
+            );
+          }
           return this.toResponse(duplicate);
         }
       }
@@ -112,10 +132,16 @@ export class PaymentsService {
     }
 
     if (saved.status === PaymentStatus.SUCCEEDED) {
-      return this.toResponse(saved, saved.amount === 0 ? null : undefined);
+      const response = this.toResponse(
+        saved,
+        saved.amount === 0 ? null : undefined,
+      );
+      response.tickets = await this.loadReceiptTickets(saved.id);
+      return response;
     }
     if (saved.providerOrderId || saved.status === PaymentStatus.PENDING) {
-      return this.toResponse(saved);
+      // Idempotent retry: reopen the same provider order with a fresh client payload.
+      return this.toResponse(saved, this.resumeClientPayload(saved));
     }
     if (saved.amount === 0) {
       return this.toResponse(saved, null);
@@ -158,9 +184,13 @@ export class PaymentsService {
           await this.fulfillmentService.fulfillIfNeeded(manager, locked);
         });
         const reloaded = await this.requireOwnedPayment(userId, paymentId);
-        return this.toResponse(reloaded);
+        const response = this.toResponse(reloaded);
+        response.tickets = await this.loadReceiptTickets(reloaded.id);
+        return response;
       }
-      return this.toResponse(payment);
+      const response = this.toResponse(payment);
+      response.tickets = await this.loadReceiptTickets(payment.id);
+      return response;
     }
 
     this.assertActiveProvider(payment);
@@ -179,7 +209,12 @@ export class PaymentsService {
     });
 
     const updated = await this.applyEvent(event, payment);
-    return this.toResponse(updated ?? payment);
+    const finalPayment = updated ?? payment;
+    const response = this.toResponse(finalPayment);
+    if (finalPayment.status === PaymentStatus.SUCCEEDED) {
+      response.tickets = await this.loadReceiptTickets(finalPayment.id);
+    }
+    return response;
   }
 
   async getPayment(
@@ -187,7 +222,43 @@ export class PaymentsService {
     paymentId: string,
   ): Promise<PaymentResponseDto> {
     const payment = await this.requireOwnedPayment(userId, paymentId);
-    return this.toResponse(payment);
+    const response = this.toResponse(payment);
+    if (payment.status === PaymentStatus.SUCCEEDED) {
+      response.tickets = await this.loadReceiptTickets(payment.id);
+    }
+    return response;
+  }
+
+  async getIssuedTicketPublic(ticketId: string) {
+    const ticket = await this.dataSource.getRepository(IssuedTicket).findOne({
+      where: { id: ticketId.trim() },
+      relations: { ticketType: true, session: { event: true }, payment: true },
+    });
+    if (!ticket) {
+      throw new NotFoundException(PaymentMessages.NOT_FOUND);
+    }
+
+    const address = ticket.session?.eventAddress as
+      | { city?: string; venueName?: string }
+      | undefined;
+
+    return {
+      id: ticket.id.trim(),
+      status: ticket.status,
+      ticketTypeName: ticket.ticketType?.name ?? 'Ticket',
+      price: this.resolvePaidUnitPriceRupees(
+        ticket.ticketTypeId,
+        ticket.payment?.metadata,
+      ),
+      eventTitle: ticket.session?.event?.title ?? 'Event',
+      sessionTitle: ticket.session?.title ?? null,
+      sessionStartAt: ticket.session?.startAt
+        ? Number(ticket.session.startAt)
+        : null,
+      city: address?.city ?? null,
+      venue: address?.venueName ?? null,
+      createdAt: Number(ticket.createdAt),
+    };
   }
 
   async refundPayment(
@@ -484,10 +555,14 @@ export class PaymentsService {
       ? dto.promoterUserId
       : undefined;
 
+    const quantityByTicketId = new Map(
+      priced.items.map((item) => [item.ticketTypeId, item.quantity]),
+    );
     for (const ticket of priced.tickets) {
-      const quantity =
-        priced.items.find((item) => item.ticketTypeId === ticket.id)
-          ?.quantity ?? 0;
+      const quantity = quantityByTicketId.get(ticket.id.trim()) ?? 0;
+      if (quantity < 1) {
+        throw new BadRequestException(EventMessages.CHECKOUT_INVALID_INPUT);
+      }
       await this.inventoryService.decrementInventory(manager, ticket, quantity);
     }
 
@@ -526,11 +601,12 @@ export class PaymentsService {
     needsReferrer: boolean;
     needsPromoter: boolean;
   }> {
-    const ticketTypeIds = dto.items.map((item) => item.ticketTypeId);
+    const ticketTypeIds = dto.items.map((item) => item.ticketTypeId.trim());
     if (new Set(ticketTypeIds).size !== ticketTypeIds.length) {
       throw new BadRequestException(PaymentMessages.DUPLICATE_TICKET_TYPE);
     }
 
+    // Lock inventory rows, then hydrate session/event for split rules.
     const tickets = await manager.find(SessionTicketType, {
       where: { id: In(ticketTypeIds) },
       lock: { mode: 'pessimistic_write' },
@@ -539,20 +615,21 @@ export class PaymentsService {
       throw new NotFoundException(EventMessages.TICKET_NOT_FOUND);
     }
 
-    const ticketsWithRelations = await manager.find(SessionTicketType, {
-      where: { id: In(ticketTypeIds) },
-      relations: { session: { event: true } },
-    });
     const relationsById = new Map(
-      ticketsWithRelations.map((ticket) => [ticket.id, ticket]),
+      (
+        await manager.find(SessionTicketType, {
+          where: { id: In(ticketTypeIds) },
+          relations: { session: { event: true } },
+        })
+      ).map((ticket) => [ticket.id.trim(), ticket]),
     );
     for (const ticket of tickets) {
-      const related = relationsById.get(ticket.id);
-      ticket.session = related?.session as SessionTicketType['session'];
+      ticket.session = relationsById.get(ticket.id.trim())
+        ?.session as SessionTicketType['session'];
     }
 
     const quantityById = new Map(
-      dto.items.map((item) => [item.ticketTypeId, item.quantity]),
+      dto.items.map((item) => [item.ticketTypeId.trim(), item.quantity]),
     );
     const now = Date.now();
     const pricedItems: PaymentMetadata['items'] = [];
@@ -562,7 +639,10 @@ export class PaymentsService {
 
     for (const ticket of tickets) {
       this.assertTicketPurchasable(ticket, now);
-      const quantity = quantityById.get(ticket.id) ?? 0;
+      const quantity = quantityById.get(ticket.id.trim()) ?? 0;
+      if (quantity < 1) {
+        throw new BadRequestException(EventMessages.CHECKOUT_INVALID_INPUT);
+      }
       if (quantity > ticket.maxPurchaseLimit) {
         throw new BadRequestException(EventMessages.CHECKOUT_INVALID_INPUT);
       }
@@ -572,8 +652,8 @@ export class PaymentsService {
       const unitPricePaise = rupeesToPaise(ticket.price);
       amountPaise += unitPricePaise * quantity;
       pricedItems.push({
-        ticketTypeId: ticket.id,
-        sessionId: ticket.sessionId,
+        ticketTypeId: ticket.id.trim(),
+        sessionId: ticket.sessionId.trim(),
         quantity,
         unitPricePaise,
       });
@@ -807,12 +887,31 @@ export class PaymentsService {
     };
   }
 
+  private resumeClientPayload(
+    payment: Payment,
+  ): PaymentClientPayload | null {
+    if (
+      payment.provider?.toUpperCase() === 'RAZORPAY' &&
+      payment.providerOrderId &&
+      this.razorpayKeyId
+    ) {
+      return {
+        provider: 'razorpay',
+        keyId: this.razorpayKeyId,
+        orderId: payment.providerOrderId,
+        amount: payment.amount,
+        currency: PaymentConstants.CURRENCY,
+      };
+    }
+    return null;
+  }
+
   private toResponse(
     payment: Payment,
     client?: PaymentClientPayload | null,
   ): PaymentResponseDto {
     const response: PaymentResponseDto = {
-      id: payment.id,
+      id: payment.id.trim(),
       status: payment.status,
       amount: paiseToRupees(payment.amount),
       currency: PaymentConstants.CURRENCY,
@@ -826,5 +925,56 @@ export class PaymentsService {
       response.client = client;
     }
     return response;
+  }
+
+  private resolvePaidUnitPriceRupees(
+    ticketTypeId: string,
+    metadata?: PaymentMetadata | null,
+  ): number {
+    const trimmedTypeId = ticketTypeId.trim();
+    const item = metadata?.items?.find(
+      (line) => line.ticketTypeId.trim() === trimmedTypeId,
+    );
+    if (item && Number.isFinite(item.unitPricePaise)) {
+      return paiseToRupees(item.unitPricePaise);
+    }
+    return 0;
+  }
+
+  private async loadReceiptTickets(paymentId: string) {
+    const [payment, tickets] = await Promise.all([
+      this.paymentRepository.findOne({ where: { id: paymentId } }),
+      this.dataSource.getRepository(IssuedTicket).find({
+        where: { paymentId },
+        relations: { ticketType: true, session: { event: true } },
+        order: { createdAt: 'ASC' },
+      }),
+    ]);
+
+    return tickets.map((ticket) => {
+      const address = ticket.session?.eventAddress as
+        | { city?: string; venueName?: string }
+        | undefined;
+      return {
+        id: ticket.id.trim(),
+        status: ticket.status,
+        ticketTypeId: ticket.ticketTypeId.trim(),
+        ticketTypeName: ticket.ticketType?.name ?? 'Ticket',
+        price: this.resolvePaidUnitPriceRupees(
+          ticket.ticketTypeId,
+          payment?.metadata,
+        ),
+        sessionId: ticket.sessionId.trim(),
+        sessionTitle: ticket.session?.title ?? null,
+        sessionStartAt: ticket.session?.startAt
+          ? Number(ticket.session.startAt)
+          : null,
+        eventId: ticket.session?.eventId?.trim() ?? '',
+        eventTitle: ticket.session?.event?.title ?? 'Event',
+        city: address?.city ?? null,
+        venue: address?.venueName ?? null,
+        createdAt: Number(ticket.createdAt),
+      };
+    });
   }
 }

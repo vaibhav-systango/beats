@@ -128,22 +128,25 @@ export class PaymentFulfillmentService {
     }
 
     const items = payment.metadata?.items ?? [];
-    const ticketTypeIds = items.map((item) => item.ticketTypeId);
+    // char(26) columns come back space-padded; metadata IDs are trimmed.
+    const ticketTypeIds = items.map((item) => item.ticketTypeId.trim());
     const tickets = await manager.find(SessionTicketType, {
       where: { id: In(ticketTypeIds) },
       relations: { session: { event: true } },
     });
-    const ticketById = new Map(tickets.map((ticket) => [ticket.id, ticket]));
+    const ticketById = new Map(
+      tickets.map((ticket) => [ticket.id.trim(), ticket]),
+    );
 
     const lines = items.map((item) => {
-      const ticket = ticketById.get(item.ticketTypeId);
+      const ticket = ticketById.get(item.ticketTypeId.trim());
       const session = ticket?.session;
       if (!ticket || !session?.event) {
         throw new Error(`Missing session data for ticket ${item.ticketTypeId}`);
       }
       return {
         amountPaise: item.unitPricePaise * item.quantity,
-        organizerId: session.event.organizerId,
+        organizerId: session.event.organizerId.trim(),
         allowReferral: !!session.allowReferral,
         referralPercent: Number(session.referralRewardPerTicket ?? 0),
         allowPromoters: !!session.allowPromoters,
@@ -154,23 +157,24 @@ export class PaymentFulfillmentService {
     const calculated = calculatePaymentSplits({
       lines,
       platformFeeBps: this.platformFeeBps,
-      referrerUserId: payment.referrerUserId,
-      promoterUserId: payment.promoterUserId,
+      referrerUserId: payment.referrerUserId?.trim() || null,
+      promoterUserId: payment.promoterUserId?.trim() || null,
     });
     assertSplitsReconcile(payment.amount, calculated);
 
     for (const split of calculated) {
+      const ownerUserId = split.ownerUserId?.trim() || null;
       const wallet = await this.walletService.getOrCreate(
         manager,
         this.walletService.ownerTypeForRecipient(split.recipientType),
-        split.ownerUserId,
+        ownerUserId,
       );
       const savedSplit = await manager.save(
         PaymentSplit,
         manager.create(PaymentSplit, {
           paymentId: payment.id,
           recipientType: split.recipientType,
-          ownerUserId: split.ownerUserId,
+          ownerUserId,
           walletId: wallet.id,
           amountPaise: split.amountPaise,
           payoutStatus: PayoutStatus.SCHEDULED,

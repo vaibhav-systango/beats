@@ -60,7 +60,12 @@ export class PaymentsController {
       if (error instanceof HttpException) {
         throw error;
       }
-      this.logger.error('Error creating payment', error);
+      this.logger.error(
+        `Error creating payment: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw new InternalServerErrorException({
         message: PaymentMessages.UNEXPECTED_ERROR,
       });
@@ -82,7 +87,12 @@ export class PaymentsController {
       if (error instanceof HttpException) {
         throw error;
       }
-      this.logger.error('Error verifying payment', error);
+      this.logger.error(
+        `Error verifying payment: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw new InternalServerErrorException({
         message: PaymentMessages.UNEXPECTED_ERROR,
       });
@@ -107,7 +117,34 @@ export class PaymentsController {
       if (error instanceof HttpException) {
         throw error;
       }
-      this.logger.error('Error refunding payment', error);
+      this.logger.error(
+        `Error refunding payment: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new InternalServerErrorException({
+        message: PaymentMessages.UNEXPECTED_ERROR,
+      });
+    }
+  }
+
+  @Get('issued-tickets/:ticketId')
+  async getIssuedTicket(
+    @Param('ticketId', UlidValidationPipe) ticketId: string,
+  ) {
+    try {
+      return await this.paymentsService.getIssuedTicketPublic(ticketId);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error(
+        `Error fetching issued ticket: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw new InternalServerErrorException({
         message: PaymentMessages.UNEXPECTED_ERROR,
       });
@@ -127,7 +164,12 @@ export class PaymentsController {
       if (error instanceof HttpException) {
         throw error;
       }
-      this.logger.error('Error fetching payment', error);
+      this.logger.error(
+        `Error fetching payment: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw new InternalServerErrorException({
         message: PaymentMessages.UNEXPECTED_ERROR,
       });

@@ -21,6 +21,13 @@ export const QUERY_KEYS = {
       signedUrl: (key: string) =>
         ['beat', 'common', 'storage', 'signedUrl', key] as const,
     },
+    SESSION_TICKETS: {
+      bySession: (sessionId: string) =>
+        ['beat', 'common', 'session-tickets', sessionId] as const,
+    },
+    PAYMENTS: {
+      detail: (id: string) => ['beat', 'common', 'payments', id] as const,
+    },
   },
   ORGANISER: {
     EVENTS: {
