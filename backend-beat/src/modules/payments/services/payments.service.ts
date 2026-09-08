@@ -232,7 +232,7 @@ export class PaymentsService {
   async getIssuedTicketPublic(ticketId: string) {
     const ticket = await this.dataSource.getRepository(IssuedTicket).findOne({
       where: { id: ticketId.trim() },
-      relations: { ticketType: true, session: { event: true } },
+      relations: { ticketType: true, session: { event: true }, payment: true },
     });
     if (!ticket) {
       throw new NotFoundException(PaymentMessages.NOT_FOUND);
@@ -246,7 +246,10 @@ export class PaymentsService {
       id: ticket.id.trim(),
       status: ticket.status,
       ticketTypeName: ticket.ticketType?.name ?? 'Ticket',
-      price: Number(ticket.ticketType?.price ?? 0),
+      price: this.resolvePaidUnitPriceRupees(
+        ticket.ticketTypeId,
+        ticket.payment?.metadata,
+      ),
       eventTitle: ticket.session?.event?.title ?? 'Event',
       sessionTitle: ticket.session?.title ?? null,
       sessionStartAt: ticket.session?.startAt
@@ -924,12 +927,29 @@ export class PaymentsService {
     return response;
   }
 
+  private resolvePaidUnitPriceRupees(
+    ticketTypeId: string,
+    metadata?: PaymentMetadata | null,
+  ): number {
+    const trimmedTypeId = ticketTypeId.trim();
+    const item = metadata?.items?.find(
+      (line) => line.ticketTypeId.trim() === trimmedTypeId,
+    );
+    if (item && Number.isFinite(item.unitPricePaise)) {
+      return paiseToRupees(item.unitPricePaise);
+    }
+    return 0;
+  }
+
   private async loadReceiptTickets(paymentId: string) {
-    const tickets = await this.dataSource.getRepository(IssuedTicket).find({
-      where: { paymentId },
-      relations: { ticketType: true, session: { event: true } },
-      order: { createdAt: 'ASC' },
-    });
+    const [payment, tickets] = await Promise.all([
+      this.paymentRepository.findOne({ where: { id: paymentId } }),
+      this.dataSource.getRepository(IssuedTicket).find({
+        where: { paymentId },
+        relations: { ticketType: true, session: { event: true } },
+        order: { createdAt: 'ASC' },
+      }),
+    ]);
 
     return tickets.map((ticket) => {
       const address = ticket.session?.eventAddress as
@@ -940,7 +960,10 @@ export class PaymentsService {
         status: ticket.status,
         ticketTypeId: ticket.ticketTypeId.trim(),
         ticketTypeName: ticket.ticketType?.name ?? 'Ticket',
-        price: Number(ticket.ticketType?.price ?? 0),
+        price: this.resolvePaidUnitPriceRupees(
+          ticket.ticketTypeId,
+          payment?.metadata,
+        ),
         sessionId: ticket.sessionId.trim(),
         sessionTitle: ticket.session?.title ?? null,
         sessionStartAt: ticket.session?.startAt

@@ -86,7 +86,12 @@ export function PaymentReceipt({ paymentId }: PaymentReceiptProps) {
   }
 
   const tickets = payment.tickets ?? []
-  const statusLabel = payment.amount === 0 ? RECEIPT_COPY.FREE : RECEIPT_COPY.PAID
+  const statusLabel =
+    payment.status === 'SUCCEEDED'
+      ? payment.amount === 0
+        ? RECEIPT_COPY.FREE
+        : RECEIPT_COPY.PAID
+      : payment.status
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-10">

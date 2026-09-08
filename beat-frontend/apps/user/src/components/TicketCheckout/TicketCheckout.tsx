@@ -144,6 +144,7 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
   useEffect(() => {
     if (!selectedSessionId) {
       setCatalog(null)
+      setQuantities({})
       return
     }
 
@@ -151,6 +152,8 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
 
     async function loadTickets() {
       setLoadingTickets(true)
+      setCatalog(null)
+      setQuantities({})
       setError(null)
       try {
         const response = normalizeCatalog(await fetchSessionTickets(selectedSessionId))
@@ -288,7 +291,7 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
   )
 
   const handlePay = async () => {
-    if (paying) return
+    if (paying || loadingTickets) return
     setError(null)
     if (!requireAuth()) return
     if (selectedItems.length === 0) {
@@ -486,7 +489,7 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
           <Button
             type="button"
             size="lg"
-            disabled={paying || selectedItems.length === 0}
+            disabled={paying || loadingTickets || selectedItems.length === 0}
             onClick={() => void handlePay()}
             className="min-w-[10rem]"
           >
