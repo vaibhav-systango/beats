@@ -6,9 +6,15 @@ export type PaymentStatus =
   | 'CANCELLED'
   | 'REFUNDED'
 
+export type PaymentAttendeeInput = {
+  guestName?: string
+  guestAge?: number
+}
+
 export type CreatePaymentItem = {
   ticketTypeId: string
   quantity: number
+  attendees?: PaymentAttendeeInput[]
 }
 
 export type CreatePaymentInput = {
@@ -39,6 +45,8 @@ export type PaymentClientPayload = RazorpayClientPayload | StripeClientPayload |
 
 export type IssuedTicketReceiptItem = {
   id: string
+  ownerUserId: string
+  ownerName?: string | null
   status: string
   ticketTypeId: string
   ticketTypeName: string
@@ -50,6 +58,8 @@ export type IssuedTicketReceiptItem = {
   eventTitle: string
   city?: string | null
   venue?: string | null
+  guestName?: string | null
+  guestAge?: number | null
   createdAt: number
 }
 
@@ -61,6 +71,7 @@ export type PaymentResponse = {
   provider: string
   failureCode?: string | null
   failureMessage?: string | null
+  referrerUserId?: string | null
   createdAt: number
   updatedAt: number
   client?: PaymentClientPayload | null

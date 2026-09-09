@@ -9,9 +9,12 @@ type RawSession = {
     venueName?: string
     formattedAddress?: string
   }
-  eventSessionMedias?: {
-    cover?: { url?: string }
-  }
+  eventSessionMedias?:
+    | {
+        cover?: { url?: string }
+        gallery?: Array<{ url?: string }>
+      }
+    | Array<{ url?: string; type?: string }>
   ticketTypes?: Array<{ price?: number }>
 }
 
@@ -28,6 +31,28 @@ type RawEvent = Record<string, unknown> & {
 
 function firstSession(raw: RawEvent): RawSession | undefined {
   return Array.isArray(raw.sessions) ? raw.sessions[0] : undefined
+}
+
+function mediaUrlFromSession(session?: RawSession): string | undefined {
+  const medias = session?.eventSessionMedias
+  if (!medias) return undefined
+
+  if (Array.isArray(medias)) {
+    const preferred =
+      medias.find((item) => {
+        const type = item.type?.toLowerCase()
+        const url = typeof item.url === 'string' ? item.url.trim() : ''
+        return (type === 'cover' || type === 'banner') && Boolean(url)
+      }) ?? medias.find((item) => typeof item.url === 'string' && item.url.trim())
+    const url = preferred?.url?.trim()
+    return url || undefined
+  }
+
+  const cover = medias.cover?.url?.trim()
+  if (cover) return cover
+
+  const galleryUrl = medias.gallery?.find((item) => item.url?.trim())?.url?.trim()
+  return galleryUrl || undefined
 }
 
 function deriveStartAt(raw: RawEvent): number | undefined {
@@ -74,8 +99,7 @@ function deriveCoverImageUrl(raw: RawEvent): string | undefined {
     return raw.coverImageUrl.trim()
   }
 
-  const cover = firstSession(raw)?.eventSessionMedias?.cover?.url
-  return typeof cover === 'string' && cover.trim() ? cover.trim() : undefined
+  return mediaUrlFromSession(firstSession(raw))
 }
 
 function derivePriceFrom(raw: RawEvent): number | undefined {

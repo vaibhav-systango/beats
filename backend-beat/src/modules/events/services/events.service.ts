@@ -448,6 +448,8 @@ export class EventsService {
       session.ticketSaleStartAt = resolvedDto.ticketSaleStartAt;
       session.ticketSaleEndAt = resolvedDto.ticketSaleEndAt;
       session.allowReferral = !!resolvedDto.allowReferral;
+      session.requireGuestName = !!resolvedDto.requireGuestName;
+      session.requireGuestAge = !!resolvedDto.requireGuestAge;
       session.referralRewardPerTicket = resolvedDto.referralRewardPerTicket || undefined;
       session.allowPromoters = !!resolvedDto.allowPromoters;
       session.promoterCommissionPercentage = resolvedDto.promoterCommissionPercentage || undefined;
@@ -580,6 +582,14 @@ export class EventsService {
       ticketSaleStartAt: dto.ticketSaleStartAt !== undefined ? dto.ticketSaleStartAt : Number(session.ticketSaleStartAt),
       ticketSaleEndAt: dto.ticketSaleEndAt !== undefined ? dto.ticketSaleEndAt : Number(session.ticketSaleEndAt),
       allowReferral: dto.allowReferral !== undefined ? dto.allowReferral : session.allowReferral,
+      requireGuestName:
+        dto.requireGuestName !== undefined
+          ? dto.requireGuestName
+          : session.requireGuestName,
+      requireGuestAge:
+        dto.requireGuestAge !== undefined
+          ? dto.requireGuestAge
+          : session.requireGuestAge,
       referralRewardPerTicket: dto.referralRewardPerTicket !== undefined ? dto.referralRewardPerTicket : session.referralRewardPerTicket,
       allowPromoters: dto.allowPromoters !== undefined ? dto.allowPromoters : session.allowPromoters,
       promoterCommissionPercentage: dto.promoterCommissionPercentage !== undefined ? dto.promoterCommissionPercentage : session.promoterCommissionPercentage,
@@ -628,6 +638,14 @@ export class EventsService {
       }
 
       session.allowReferral = dto.allowReferral !== undefined ? !!dto.allowReferral : session.allowReferral;
+      session.requireGuestName =
+        dto.requireGuestName !== undefined
+          ? !!dto.requireGuestName
+          : session.requireGuestName;
+      session.requireGuestAge =
+        dto.requireGuestAge !== undefined
+          ? !!dto.requireGuestAge
+          : session.requireGuestAge;
       session.referralRewardPerTicket = dto.referralRewardPerTicket !== undefined ? (dto.referralRewardPerTicket || undefined) : session.referralRewardPerTicket;
       session.allowPromoters = dto.allowPromoters !== undefined ? !!dto.allowPromoters : session.allowPromoters;
       session.promoterCommissionPercentage = dto.promoterCommissionPercentage !== undefined ? (dto.promoterCommissionPercentage || undefined) : session.promoterCommissionPercentage;
@@ -886,6 +904,9 @@ export class EventsService {
     lat?: number,
     lng?: number,
     radius?: string,
+    minPrice?: number,
+    maxPrice?: number,
+    mode?: string,
   ) {
     const hasSearchParams = !!(
       search ||
@@ -894,7 +915,10 @@ export class EventsService {
       dateFrom ||
       dateTo ||
       language ||
-      (lat !== undefined && lng !== undefined)
+      (lat !== undefined && lng !== undefined) ||
+      minPrice !== undefined ||
+      maxPrice !== undefined ||
+      mode
     );
 
     if (!hasSearchParams) {
@@ -950,6 +974,9 @@ export class EventsService {
         radius,
         limit,
         offset,
+        minPrice,
+        maxPrice,
+        mode,
       });
     } catch (error) {
       this.logger.error('OpenSearch search failed, falling back to PostgreSQL discovery', error);
@@ -960,11 +987,18 @@ export class EventsService {
       const total = await this.countLivePublishedEvents();
       const events = await this.eventRepository.findLivePublishedEvents(limit, offset);
 
-      const output = await this.enrichEventsWithActiveSessions(events);
+      const output = this.postFilterDiscoveryEvents(
+        await this.enrichEventsWithActiveSessions(events),
+        minPrice,
+        maxPrice,
+        mode,
+      );
 
       return {
         data: output,
         pagination: {
+          // Filters are applied after paging; total stays the unfiltered count
+          // (aligned with the primary search branch).
           total,
           limit,
           offset,
@@ -1068,14 +1102,201 @@ export class EventsService {
       return clonedEvent;
     });
 
+    const filtered = this.postFilterDiscoveryEvents(data, minPrice, maxPrice, mode);
+
     return {
-      data,
+      data: filtered,
       pagination: {
+        // Prefer search-engine total; post-filter only shrinks the current page
+        // when OpenSearch could not apply price/mode (should be rare after SQL delegate).
         total,
         limit,
         offset,
       },
     };
+  }
+
+  /**
+   * Post-filters enriched discovery events by ticket price and/or session mode
+   * (needed when the search backend cannot apply those filters, e.g. OpenSearch).
+   */
+  private postFilterDiscoveryEvents(
+    events: any[],
+    minPrice?: number,
+    maxPrice?: number,
+    mode?: string,
+  ): any[] {
+    if (minPrice === undefined && maxPrice === undefined && !mode) {
+      return events;
+    }
+
+    const filtered: any[] = [];
+    for (const event of events) {
+      let sessions = Array.isArray(event.sessions) ? [...event.sessions] : [];
+
+      if (mode) {
+        sessions = sessions.filter((s) => s?.mode === mode);
+      }
+
+      if (minPrice !== undefined || maxPrice !== undefined) {
+        sessions = sessions.filter((s) => {
+          const tickets = Array.isArray(s?.ticketTypes) ? s.ticketTypes : [];
+          const prices = tickets
+            .map((t: any) => Number(t?.price))
+            .filter((p: number) => Number.isFinite(p));
+          const priceFrom =
+            typeof event.priceFrom === 'number' && Number.isFinite(event.priceFrom)
+              ? event.priceFrom
+              : prices.length > 0
+                ? Math.min(...prices)
+                : undefined;
+          if (priceFrom === undefined && prices.length === 0) {
+            return false;
+          }
+          const candidatePrices = prices.length > 0 ? prices : [priceFrom as number];
+          return candidatePrices.some((price: number) => {
+            if (minPrice !== undefined && price < minPrice) return false;
+            if (maxPrice !== undefined && price > maxPrice) return false;
+            return true;
+          });
+        });
+      }
+
+      if (sessions.length === 0) {
+        continue;
+      }
+      filtered.push({ ...event, sessions });
+    }
+    return filtered;
+  }
+
+  /**
+   * Curated public feed sections (tonight / this weekend / upcoming).
+   */
+  async getPublicDiscoveryFeed(params: {
+    city?: string;
+    lat?: number;
+    lng?: number;
+    radius?: string;
+    category?: string;
+    limit?: number;
+  }) {
+    const limit = params.limit ?? 8;
+    const ttlMs = EventConstants.DISCOVERY_CACHE_TTL_MS;
+    // Align date windows and cache key to the same TTL bucket so keys stay stable
+    // within a window (avoid unique keys from raw Date.now() each request).
+    const nowBucket = Math.floor(Date.now() / ttlMs) * ttlMs;
+
+    const cacheKey = [
+      'public:discovery:feed',
+      `limit=${limit}`,
+      `city=${(params.city ?? '').trim().toLowerCase()}`,
+      `category=${(params.category ?? '').trim().toLowerCase()}`,
+      `lat=${params.lat ?? ''}`,
+      `lng=${params.lng ?? ''}`,
+      `radius=${params.radius ?? ''}`,
+      `t=${nowBucket}`,
+    ].join(':');
+
+    const cached = await this.cacheService.get<{
+      sections: Array<{ key: string; label: string; data: unknown[] }>;
+    }>(cacheKey);
+    if (cached) {
+      this.logger.log(
+        `[CACHE] Hit for public discovery curated feed (limit: ${limit})`,
+      );
+      return cached;
+    }
+
+    this.logger.log(
+      `[CACHE] Miss for public discovery curated feed (limit: ${limit})`,
+    );
+
+    const now = nowBucket;
+    const endOfToday = this.endOfLocalCalendarDay(now);
+    const weekend = this.currentOrUpcomingWeekendBounds(now);
+    const upcomingTo = now + 30 * 24 * 60 * 60 * 1000;
+
+    const [tonight, thisWeekend, upcoming] = await Promise.all([
+      this.getPublicDiscoveryEvents(
+        limit,
+        0,
+        undefined,
+        params.city,
+        params.category,
+        now,
+        endOfToday,
+        undefined,
+        params.lat,
+        params.lng,
+        params.radius,
+      ),
+      this.getPublicDiscoveryEvents(
+        limit,
+        0,
+        undefined,
+        params.city,
+        params.category,
+        weekend.from,
+        weekend.to,
+        undefined,
+        params.lat,
+        params.lng,
+        params.radius,
+      ),
+      this.getPublicDiscoveryEvents(
+        limit,
+        0,
+        undefined,
+        params.city,
+        params.category,
+        now,
+        upcomingTo,
+        undefined,
+        params.lat,
+        params.lng,
+        params.radius,
+      ),
+    ]);
+
+    const result = {
+      sections: [
+        { key: 'tonight', label: 'Tonight', data: tonight.data ?? [] },
+        { key: 'thisWeekend', label: 'This weekend', data: thisWeekend.data ?? [] },
+        { key: 'upcoming', label: 'Upcoming', data: upcoming.data ?? [] },
+      ],
+    };
+
+    await this.cacheService.set(cacheKey, result, ttlMs);
+    return result;
+  }
+
+  private endOfLocalCalendarDay(nowMs: number): number {
+    const d = new Date(nowMs);
+    d.setHours(23, 59, 59, 999);
+    return d.getTime();
+  }
+
+  /** Friday 00:00 – Sunday 23:59 of the current or upcoming weekend (server local). */
+  private currentOrUpcomingWeekendBounds(nowMs: number): {
+    from: number;
+    to: number;
+  } {
+    const now = new Date(nowMs);
+    const day = now.getDay(); // 0=Sun … 5=Fri 6=Sat
+    const friday = new Date(now);
+    if (day === 0) {
+      friday.setDate(now.getDate() - 2);
+    } else if (day >= 5) {
+      friday.setDate(now.getDate() - (day - 5));
+    } else {
+      friday.setDate(now.getDate() + (5 - day));
+    }
+    friday.setHours(0, 0, 0, 0);
+    const sunday = new Date(friday);
+    sunday.setDate(friday.getDate() + 2);
+    sunday.setHours(23, 59, 59, 999);
+    return { from: friday.getTime(), to: sunday.getTime() };
   }
 
   /**

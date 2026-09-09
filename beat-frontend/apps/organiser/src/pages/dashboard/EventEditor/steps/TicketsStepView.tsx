@@ -15,6 +15,8 @@ export interface TicketsStepViewProps {
   draftTicket: SessionTicketType
   saleStartLocal: string
   saleEndLocal: string
+  requireGuestName: boolean
+  requireGuestAge: boolean
   saleWindowError?: string | null
   error?: string | null
   isSaving: boolean
@@ -28,6 +30,8 @@ export interface TicketsStepViewProps {
   onAddTicket: () => void
   onSaleStartChange: (value: string) => void
   onSaleEndChange: (value: string) => void
+  onRequireGuestNameChange: (value: boolean) => void
+  onRequireGuestAgeChange: (value: boolean) => void
   onBack: () => void
   onSaveAndNext: () => void
 }
@@ -43,6 +47,8 @@ export function TicketsStepView({
   draftTicket,
   saleStartLocal,
   saleEndLocal,
+  requireGuestName,
+  requireGuestAge,
   saleWindowError,
   error,
   isSaving,
@@ -56,6 +62,8 @@ export function TicketsStepView({
   onAddTicket,
   onSaleStartChange,
   onSaleEndChange,
+  onRequireGuestNameChange,
+  onRequireGuestAgeChange,
   onBack,
   onSaveAndNext,
 }: TicketsStepViewProps) {
@@ -151,6 +159,28 @@ export function TicketsStepView({
           onChange={onSaleEndChange}
           minDateTime={saleStartLocal || undefined}
         />
+      </div>
+
+      <div className="space-y-3 rounded-lg border border-border p-4">
+        <p className="text-sm font-medium">Guest details at checkout</p>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={requireGuestName}
+            onChange={(e) => onRequireGuestNameChange(e.target.checked)}
+            className="h-4 w-4 rounded border-border"
+          />
+          Require guest name
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={requireGuestAge}
+            onChange={(e) => onRequireGuestAgeChange(e.target.checked)}
+            className="h-4 w-4 rounded border-border"
+          />
+          Require guest age
+        </label>
       </div>
 
       {saleWindowError ? (

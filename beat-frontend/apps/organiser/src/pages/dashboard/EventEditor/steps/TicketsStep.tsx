@@ -50,6 +50,10 @@ export function TicketsStep({ eventId, session, onBack, onNext }: TicketsStepPro
   const [saleEndLocal, setSaleEndLocal] = useState(
     epochToDatetimeLocal(session?.ticketSaleEndAt)
   )
+  const [requireGuestName, setRequireGuestName] = useState(
+    !!session?.requireGuestName
+  )
+  const [requireGuestAge, setRequireGuestAge] = useState(!!session?.requireGuestAge)
   const [error, setError] = useState<string | null>(null)
 
   const addTicket = () => {
@@ -69,6 +73,11 @@ export function TicketsStep({ eventId, session, onBack, onNext }: TicketsStepPro
 
   const buildSessionPatch = (): UpdateSessionInput => {
     const patch: UpdateSessionInput = {}
+
+    if (session?.id || requireGuestName || requireGuestAge) {
+      patch.requireGuestName = requireGuestName
+      patch.requireGuestAge = requireGuestAge
+    }
 
     if (saleStartLocal) {
       patch.ticketSaleStartAt = datetimeLocalToEpoch(saleStartLocal)
@@ -118,6 +127,8 @@ export function TicketsStep({ eventId, session, onBack, onNext }: TicketsStepPro
       draftTicket={draftTicket}
       saleStartLocal={saleStartLocal}
       saleEndLocal={saleEndLocal}
+      requireGuestName={requireGuestName}
+      requireGuestAge={requireGuestAge}
       error={error}
       isSaving={createSession.isPending || updateSession.isPending}
       backLabel={EVENT_EDITOR_COPY.BACK}
@@ -136,6 +147,8 @@ export function TicketsStep({ eventId, session, onBack, onNext }: TicketsStepPro
       onAddTicket={addTicket}
       onSaleStartChange={setSaleStartLocal}
       onSaleEndChange={setSaleEndLocal}
+      onRequireGuestNameChange={setRequireGuestName}
+      onRequireGuestAgeChange={setRequireGuestAge}
       onBack={onBack}
       onSaveAndNext={() => void handleSaveAndNext()}
     />

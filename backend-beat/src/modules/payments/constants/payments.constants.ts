@@ -19,6 +19,10 @@ export const PaymentMessages = {
   PROMOTER_REQUIRED:
     'A promoter is required because a selected session has promoter commission enabled.',
   PROMOTER_INVALID: 'The promoter is invalid.',
+  GUEST_NAME_REQUIRED:
+    'Guest name is required for each ticket on this session.',
+  GUEST_AGE_REQUIRED:
+    'Guest age (1–120) is required for each ticket on this session.',
   REFUND_NOT_ALLOWED: 'This payment cannot be refunded.',
   REFUND_FAILED: 'Payment refund failed.',
   REFUND_PAYOUT_PAID:

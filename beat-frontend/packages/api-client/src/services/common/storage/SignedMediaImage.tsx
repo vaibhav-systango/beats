@@ -1,3 +1,5 @@
+'use client'
+
 import type { ImgHTMLAttributes } from 'react'
 
 import { useSignedMediaUrl } from './storage.queries'

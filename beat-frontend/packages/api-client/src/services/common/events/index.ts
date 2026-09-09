@@ -1,5 +1,6 @@
 export {
   fetchEvents,
+  fetchEventsFeed,
   getEvents,
   createEvent,
   fetchPublicEventById,

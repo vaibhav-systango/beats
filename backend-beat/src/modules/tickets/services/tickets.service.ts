@@ -50,6 +50,9 @@ export class TicketsService {
       eventTitle: session.event.title,
       ticketSaleStartAt,
       ticketSaleEndAt,
+      requireGuestName: !!session.requireGuestName,
+      requireGuestAge: !!session.requireGuestAge,
+      allowReferral: !!session.allowReferral,
       tickets: tickets.map((ticket) =>
         this.mapTicket(ticket, now, ticketSaleStartAt, ticketSaleEndAt),
       ),

@@ -403,6 +403,9 @@ export class EventsController {
     @Query('lat') lat?: string,
     @Query('lng') lng?: string,
     @Query('radius') radius?: string,
+    @Query('minPrice') minPrice?: string,
+    @Query('maxPrice') maxPrice?: string,
+    @Query('mode') mode?: string,
   ) {
     try {
       const parsedLimit = limit ? parseInt(limit, 10) : 10;
@@ -413,6 +416,14 @@ export class EventsController {
       const dateToVal = dateTo ? parseInt(dateTo, 10) : undefined;
       const latVal = lat ? parseFloat(lat) : undefined;
       const lngVal = lng ? parseFloat(lng) : undefined;
+      const minPriceVal =
+        minPrice !== undefined && minPrice !== ''
+          ? parseFloat(minPrice)
+          : undefined;
+      const maxPriceVal =
+        maxPrice !== undefined && maxPrice !== ''
+          ? parseFloat(maxPrice)
+          : undefined;
 
       return await this.eventsService.getPublicDiscoveryEvents(
         limitVal,
@@ -426,12 +437,53 @@ export class EventsController {
         latVal,
         lngVal,
         radius,
+        Number.isFinite(minPriceVal as number) ? minPriceVal : undefined,
+        Number.isFinite(maxPriceVal as number) ? maxPriceVal : undefined,
+        mode || undefined,
       );
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
       }
       this.logger.error('Error occurred in public discovery: ', error);
+      throw new InternalServerErrorException({
+        message: EventMessages.UNEXPECTED_ERROR,
+      });
+    }
+  }
+
+  /**
+   * Curated public discovery feed (tonight / this weekend / upcoming).
+   */
+  @Get('feed')
+  @Throttle({ default: { limit: EventConstants.DISCOVERY_LIMIT, ttl: EventConstants.DISCOVERY_TTL_MS } })
+  async getPublicDiscoveryFeed(
+    @Query('city') city?: string,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+    @Query('radius') radius?: string,
+    @Query('category') category?: string,
+    @Query('limit') limit?: string,
+  ) {
+    try {
+      const parsedLimit = limit ? parseInt(limit, 10) : 8;
+      const limitVal = !isNaN(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 50) : 8;
+      const latVal = lat ? parseFloat(lat) : undefined;
+      const lngVal = lng ? parseFloat(lng) : undefined;
+
+      return await this.eventsService.getPublicDiscoveryFeed({
+        city,
+        lat: Number.isFinite(latVal as number) ? latVal : undefined,
+        lng: Number.isFinite(lngVal as number) ? lngVal : undefined,
+        radius,
+        category,
+        limit: limitVal,
+      });
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Error occurred in public discovery feed: ', error);
       throw new InternalServerErrorException({
         message: EventMessages.UNEXPECTED_ERROR,
       });

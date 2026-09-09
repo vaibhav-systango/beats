@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+/** Public scan payload — no guest/owner PII. */
 export class IssuedTicketPublicDto {
   @ApiProperty({ example: '01ARZ3NDEKTSV4RRFFQ69G5TIX' })
   id: string;

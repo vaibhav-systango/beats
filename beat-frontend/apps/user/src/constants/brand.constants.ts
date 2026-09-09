@@ -60,8 +60,30 @@ export const HOME_COPY = {
   CITIES_HEADING: 'Popular cities',
   CATEGORIES_HEADING: 'Browse by category',
   POPULAR_HEADING: 'Popular events',
+  FEED_HEADING: 'Near you',
   POPULAR_EMPTY: 'No published events yet. Check back soon.',
+  FEED_EMPTY: 'No events match this city, date, or location.',
   VIEW_ALL_EVENTS: 'View all events',
+  CITY_LABEL: 'City',
+  CITY_ANY: 'Any city',
+  CATEGORY_LABEL: 'Category',
+  CATEGORY_ANY: 'Any category',
+  DATE_LABEL: 'When',
+  FILTER_ALL: 'Any time',
+  FILTER_TONIGHT: 'Tonight',
+  FILTER_THIS_WEEK: 'This week',
+  FILTER_THIS_WEEKEND: 'This weekend',
+  USE_SAVED_LOCATION: 'Use saved location',
+  LOCATION_DETECTING: 'Detecting your location…',
+  LOCATION_APPLIED: 'Showing events near your current location.',
+  LOCATION_SAVED_APPLIED: 'Using your saved discovery location.',
+  LOCATION_DENIED: 'Location permission denied. Choose a city instead.',
+  LOCATION_UNAVAILABLE: 'Geolocation is not available in this browser.',
+  ACTIVE_CITY: 'Filtering by',
+  ACTIVE_GEO: 'Filtering by your location',
+  EXPLORE_MORE: 'Explore more',
+  RESULTS_FOR: 'Events in',
+  CLEAR_FILTERS: 'Clear filters',
 } as const
 
 export const EVENTS_COPY = {
@@ -70,6 +92,18 @@ export const EVENTS_COPY = {
   FILTER_ALL: 'All',
   FILTER_THIS_WEEK: 'This week',
   FILTER_THIS_WEEKEND: 'This weekend',
+  FILTER_TONIGHT: 'Tonight',
+  PRICE_LABEL: 'Price (₹)',
+  PRICE_MIN: 'Min',
+  PRICE_MAX: 'Max',
+  VENUE_TYPE_LABEL: 'Venue type',
+  VENUE_ANY: 'Any',
+  VENUE_OFFLINE: 'In person',
+  VENUE_ONLINE: 'Online',
+  VENUE_HYBRID: 'Hybrid',
+  DISTANCE_LABEL: 'Distance (km)',
+  APPLY_FILTERS: 'Apply filters',
+  CLEAR_FILTERS: 'Clear filters',
 } as const
 
 export const EVENT_DETAIL_COPY = {
@@ -81,6 +115,20 @@ export const EVENT_DETAIL_COPY = {
   DATE_TBA: 'Date TBA',
   VENUE_TBA: 'Venue TBA',
   BACK_TO_EVENTS: 'Back to events',
+  TAB_OVERVIEW: 'Overview',
+  TAB_TICKETS: 'Tickets',
+  TAB_RESALE: 'Resale',
+  TAB_FAQ: 'FAQ',
+  MAP_HEADING: 'Map',
+  MAP_MISSING: 'Map location is not available for this event yet.',
+  LINEUP_HEADING: 'Lineup',
+  LINEUP_EMPTY: 'Lineup will be announced soon.',
+  FAQ_EMPTY: 'No FAQs published for this event yet.',
+  RESALE_COMING_SOON: 'Resale is coming soon for this event.',
+  TICKETS_TAB_HINT: 'Choose a ticket type and continue to checkout.',
+  TICKETS_SIGN_IN_REQUIRED:
+    'Sign in to view ticket types and complete checkout.',
+  SIGN_IN_TO_BUY: 'Sign in to buy tickets',
 } as const
 
 export const EVENT_TICKETS_COPY = {
@@ -100,6 +148,24 @@ export const EVENT_TICKETS_COPY = {
   SIGN_IN_HINT: 'You’ll sign in before checkout if needed.',
   SUCCESS: 'Payment successful — your tickets are confirmed.',
   SUCCESS_FREE: 'Booking confirmed — no payment required.',
+  GUEST_DETAILS_HEADING: 'Guest details',
+  GUEST_DETAILS_HINT: 'Enter details for each ticket as required by the organiser.',
+  GUEST_NAME: 'Guest name',
+  GUEST_AGE: 'Guest age',
+  GUEST_REQUIRED: 'Please complete required guest details.',
+  ORDER_SUMMARY: 'Order summary',
+  FACE_VALUE: 'Ticket face value',
+  TAXES: 'Taxes',
+  TAXES_INCLUDED: 'Included in ticket price',
+  BEAT_CREDITS: 'Beat Credits',
+  BEAT_CREDITS_EARN: 'You’ll earn approximately',
+  BEAT_CREDITS_BURN: 'Apply Beat Credits',
+  BEAT_CREDITS_UNAVAILABLE: 'No Beat Credits available yet',
+  PAYMENT_METHOD: 'Payment method',
+  PAYMENT_RAZORPAY: 'Razorpay',
+  REFERRAL_BADGE: 'Referred purchase',
+  CONTINUE_GUESTS: 'Continue',
+  BACK_TO_TICKETS: 'Back to tickets',
 } as const
 
 export const RECEIPT_COPY = {
@@ -117,6 +183,10 @@ export const RECEIPT_COPY = {
   TICKET_ID: 'Ticket ID',
   STATUS: 'Status',
   SIGN_IN_REQUIRED: 'Sign in to view this receipt.',
+  REFERRAL_REWARD:
+    'Referral reward applied — thanks for purchasing through an invite link.',
+  GUEST_LABEL: 'Guest',
+  OWNED_BY: 'Owned by',
 } as const
 
 export const TICKET_SCAN_COPY = {
@@ -125,6 +195,7 @@ export const TICKET_SCAN_COPY = {
   MISSING: 'This ticket could not be found.',
   VALID: 'Valid ticket',
   VOID: 'Void / refunded',
+  OWNED_BY: 'Owned by',
   BACK_HOME: 'Back to home',
 } as const
 

@@ -67,6 +67,12 @@ export interface SessionTicketType {
   saleEndAt: number
 }
 
+export interface ArtistMetadata {
+  name: string
+  socialMediaUrl?: string
+  category?: string
+}
+
 export interface EventSession {
   id: string
   eventId: string
@@ -86,6 +92,9 @@ export interface EventSession {
   referralRewardPerTicket?: number
   allowPromoters?: boolean
   promoterCommissionPercentage?: number
+  requireGuestName?: boolean
+  requireGuestAge?: boolean
+  artistMetadata?: ArtistMetadata | ArtistMetadata[] | null
   status?: SessionStatus
   categoryIds?: string[]
   /** Populated category objects returned by the event-details API. */
@@ -113,6 +122,11 @@ export interface CreateSessionInput {
   ticketSaleStartAt?: number
   ticketSaleEndAt?: number
   ticketTypes?: SessionTicketType[]
+  allowReferral?: boolean
+  referralRewardPerTicket?: number
+  requireGuestName?: boolean
+  requireGuestAge?: boolean
+  artistMetadata?: ArtistMetadata
 }
 
 export type UpdateSessionInput = Partial<CreateSessionInput>

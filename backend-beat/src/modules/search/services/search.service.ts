@@ -18,6 +18,9 @@ export abstract class SearchService implements OnModuleInit {
     radius?: string;
     limit?: number;
     offset?: number;
+    minPrice?: number;
+    maxPrice?: number;
+    mode?: string;
   }): Promise<{
     total: number;
     hits: Array<{
