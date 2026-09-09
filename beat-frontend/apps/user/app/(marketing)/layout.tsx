@@ -1,4 +1,4 @@
-import { Navbar } from '@/components'
+import { Navbar, SiteAtmosphere } from '@/components'
 
 export default function MarketingLayout({
   children,
@@ -6,9 +6,12 @@ export default function MarketingLayout({
   children: React.ReactNode
 }) {
   return (
-    <>
-      <Navbar />
-      <main className="min-h-screen">{children}</main>
-    </>
+    <div className="relative isolate min-h-screen text-foreground">
+      <SiteAtmosphere />
+      <div className="relative z-10">
+        <Navbar />
+        <main className="min-h-screen">{children}</main>
+      </div>
+    </div>
   )
 }

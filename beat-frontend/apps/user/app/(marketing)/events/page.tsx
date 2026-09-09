@@ -6,7 +6,9 @@ import {
   createPageMetadata,
   filterEventsByWhen,
   getWhenDateRange,
+  parseVenueTypeFilter,
   parseWhenFilter,
+  radiusParam,
 } from '@/lib'
 
 export const metadata = createPageMetadata(
@@ -20,6 +22,12 @@ type EventsPageProps = {
     city?: string | string[]
     category?: string | string[]
     when?: string | string[]
+    minPrice?: string | string[]
+    maxPrice?: string | string[]
+    venueType?: string | string[]
+    distanceKm?: string | string[]
+    lat?: string | string[]
+    lng?: string | string[]
   }
 }
 
@@ -28,11 +36,23 @@ function getSearchParam(value: string | string[] | undefined): string | undefine
   return normalized?.trim() || undefined
 }
 
+function parseNumber(value: string | undefined): number | undefined {
+  if (!value) return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
 export default async function EventsPage({ searchParams }: EventsPageProps) {
   const q = getSearchParam(searchParams?.q)
   const city = getSearchParam(searchParams?.city)
   const category = getSearchParam(searchParams?.category)
   const when = parseWhenFilter(getSearchParam(searchParams?.when))
+  const minPrice = parseNumber(getSearchParam(searchParams?.minPrice))
+  const maxPrice = parseNumber(getSearchParam(searchParams?.maxPrice))
+  const venueType = parseVenueTypeFilter(getSearchParam(searchParams?.venueType))
+  const distanceKm = parseNumber(getSearchParam(searchParams?.distanceKm))
+  const lat = parseNumber(getSearchParam(searchParams?.lat))
+  const lng = parseNumber(getSearchParam(searchParams?.lng))
   const dateRange = getWhenDateRange(when)
 
   let events = { data: [] as Awaited<ReturnType<typeof fetchEvents>>['data'] }
@@ -44,6 +64,16 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       ...(city ? { city } : {}),
       ...(category ? { category } : {}),
       ...dateRange,
+      ...(minPrice != null ? { minPrice } : {}),
+      ...(maxPrice != null ? { maxPrice } : {}),
+      ...(venueType !== 'all' ? { mode: venueType } : {}),
+      ...(lat != null && lng != null
+        ? {
+            lat,
+            lng,
+            ...(radiusParam(distanceKm) ? { radius: radiusParam(distanceKm) } : {}),
+          }
+        : {}),
     })
   } catch {
     // API not available
@@ -58,7 +88,18 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
         Search and filter live experiences near you.
       </p>
 
-      <EventsBrowseToolbar q={q} city={city} category={category} when={when} />
+      <EventsBrowseToolbar
+        q={q}
+        city={city}
+        category={category}
+        when={when}
+        minPrice={minPrice}
+        maxPrice={maxPrice}
+        venueType={venueType}
+        distanceKm={distanceKm}
+        lat={lat}
+        lng={lng}
+      />
 
       {filtered.length === 0 ? (
         <p className="rounded-lg border border-border bg-card px-4 py-10 text-center text-muted-foreground">

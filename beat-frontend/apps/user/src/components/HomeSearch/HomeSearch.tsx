@@ -19,14 +19,14 @@ export function HomeSearch() {
   return (
     <form
       onSubmit={onSubmit}
-      className="mt-8 flex w-full max-w-xl flex-col gap-3 sm:flex-row"
+      className="flex w-full flex-col gap-3 sm:flex-row"
     >
       <Input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={HOME_COPY.SEARCH_PLACEHOLDER}
         aria-label={HOME_COPY.SEARCH_PLACEHOLDER}
-        className="h-11 bg-background/80"
+        className="h-11 border-white/10 bg-black/25"
       />
       <Button type="submit" className="h-11 shrink-0 px-6">
         {HOME_COPY.SEARCH_CTA}
