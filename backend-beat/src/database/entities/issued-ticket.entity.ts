@@ -12,6 +12,7 @@ import { bigintTransformer } from './event.entity';
 import { Payment } from './payment.entity';
 import { SessionTicketType } from './session-ticket-type.entity';
 import { EventSession } from './event-session.entity';
+import { User } from './user.entity';
 
 export enum IssuedTicketStatus {
   VALID = 'VALID',
@@ -20,6 +21,7 @@ export enum IssuedTicketStatus {
 
 @Entity('issued_tickets')
 @Index('IDX_issued_tickets_payment_id', ['paymentId'])
+@Index('IDX_issued_tickets_owner_user_id', ['ownerUserId'])
 export class IssuedTicket {
   @PrimaryColumn({
     type: 'char',
@@ -37,6 +39,18 @@ export class IssuedTicket {
   @ManyToOne(() => Payment)
   @JoinColumn({ name: 'payment_id' })
   payment: Payment;
+
+  /** Current ticket holder. Set to buyer at issue; updated on resale transfer. */
+  @Column({
+    name: 'owner_user_id',
+    type: 'char',
+    length: 26,
+  })
+  ownerUserId: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'owner_user_id' })
+  owner: User;
 
   @Column({
     name: 'ticket_type_id',
@@ -66,6 +80,21 @@ export class IssuedTicket {
     default: IssuedTicketStatus.VALID,
   })
   status: IssuedTicketStatus;
+
+  @Column({
+    name: 'guest_name',
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+  })
+  guestName?: string | null;
+
+  @Column({
+    name: 'guest_age',
+    type: 'int',
+    nullable: true,
+  })
+  guestAge?: number | null;
 
   @Column({
     name: 'created_at',

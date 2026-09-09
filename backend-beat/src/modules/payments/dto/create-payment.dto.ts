@@ -15,6 +15,22 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export class PaymentAttendeeDto {
+  @ApiPropertyOptional({ example: 'Alex Buyer' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  guestName?: string;
+
+  @ApiPropertyOptional({ example: 28, minimum: 1, maximum: 120 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(120)
+  guestAge?: number;
+}
+
 export class CreatePaymentItemDto {
   @ApiProperty({ example: '01ARZ3NDEKTSV4RRFFQ69G5FAX' })
   @IsString()
@@ -26,6 +42,13 @@ export class CreatePaymentItemDto {
   @Min(1)
   @Max(50)
   quantity: number;
+
+  @ApiPropertyOptional({ type: [PaymentAttendeeDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PaymentAttendeeDto)
+  attendees?: PaymentAttendeeDto[];
 }
 
 export class CreatePaymentDto {

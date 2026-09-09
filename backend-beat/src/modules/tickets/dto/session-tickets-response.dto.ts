@@ -54,6 +54,15 @@ export class SessionTicketsResponseDto {
   @ApiProperty({ example: 1754303999000 })
   ticketSaleEndAt: number;
 
+  @ApiProperty({ example: false })
+  requireGuestName: boolean;
+
+  @ApiProperty({ example: false })
+  requireGuestAge: boolean;
+
+  @ApiProperty({ example: false })
+  allowReferral: boolean;
+
   @ApiProperty({ type: [SessionTicketItemDto] })
   tickets: SessionTicketItemDto[];
 }

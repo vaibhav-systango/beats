@@ -21,11 +21,17 @@ export enum PaymentStatus {
   REFUNDED = 'REFUNDED',
 }
 
+export interface PaymentLineItemAttendee {
+  guestName?: string;
+  guestAge?: number;
+}
+
 export interface PaymentLineItem {
   ticketTypeId: string;
   sessionId: string;
   quantity: number;
   unitPricePaise: number;
+  attendees?: PaymentLineItemAttendee[];
 }
 
 export interface PaymentMetadata {

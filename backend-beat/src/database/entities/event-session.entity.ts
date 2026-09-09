@@ -200,6 +200,20 @@ export class EventSession {
   allowReferral: boolean;
 
   @Column({
+    name: 'require_guest_name',
+    type: 'boolean',
+    default: false,
+  })
+  requireGuestName: boolean;
+
+  @Column({
+    name: 'require_guest_age',
+    type: 'boolean',
+    default: false,
+  })
+  requireGuestAge: boolean;
+
+  @Column({
     name: 'referral_reward_per_ticket',
     type: 'decimal',
     precision: 10,

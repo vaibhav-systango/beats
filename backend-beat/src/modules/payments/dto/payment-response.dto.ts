@@ -7,6 +7,12 @@ export class IssuedTicketReceiptItemDto {
   @ApiProperty({ example: '01ARZ3NDEKTSV4RRFFQ69G5TIX' })
   id: string;
 
+  @ApiProperty({ example: '01USER0000000000000000001' })
+  ownerUserId: string;
+
+  @ApiPropertyOptional({ example: 'Bhumi Rai', nullable: true })
+  ownerName?: string | null;
+
   @ApiProperty({ example: 'VALID' })
   status: string;
 
@@ -40,6 +46,12 @@ export class IssuedTicketReceiptItemDto {
   @ApiPropertyOptional({ example: 'NSCI Dome', nullable: true })
   venue?: string | null;
 
+  @ApiPropertyOptional({ example: 'Alex Buyer', nullable: true })
+  guestName?: string | null;
+
+  @ApiPropertyOptional({ example: 28, nullable: true })
+  guestAge?: number | null;
+
   @ApiProperty({ example: 1751625600000 })
   createdAt: number;
 }
@@ -68,6 +80,13 @@ export class PaymentResponseDto {
 
   @ApiPropertyOptional({ nullable: true })
   failureMessage?: string | null;
+
+  @ApiPropertyOptional({
+    example: '01ARZ3NDEKTSV4RRFFQ69G5REF',
+    nullable: true,
+    description: 'Referrer user id when a referral was applied.',
+  })
+  referrerUserId?: string | null;
 
   @ApiProperty({ example: 1751625600000 })
   createdAt: number;

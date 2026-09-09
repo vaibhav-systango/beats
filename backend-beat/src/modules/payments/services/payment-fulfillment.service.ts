@@ -92,12 +92,21 @@ export class PaymentFulfillmentService {
     const issued: IssuedTicket[] = [];
     for (const item of payment.metadata?.items ?? []) {
       for (let i = 0; i < item.quantity; i += 1) {
+        const attendee = item.attendees?.[i];
         issued.push(
           manager.create(IssuedTicket, {
             paymentId: payment.id,
+            ownerUserId: payment.userId,
             ticketTypeId: item.ticketTypeId,
             sessionId: item.sessionId,
             status: IssuedTicketStatus.VALID,
+            guestName: attendee?.guestName?.trim() || null,
+            guestAge:
+              attendee?.guestAge !== undefined &&
+              attendee?.guestAge !== null &&
+              Number.isFinite(attendee.guestAge)
+                ? Math.trunc(attendee.guestAge)
+                : null,
           }),
         );
       }

@@ -232,7 +232,11 @@ export class PaymentsService {
   async getIssuedTicketPublic(ticketId: string) {
     const ticket = await this.dataSource.getRepository(IssuedTicket).findOne({
       where: { id: ticketId.trim() },
-      relations: { ticketType: true, session: { event: true }, payment: true },
+      relations: {
+        ticketType: true,
+        session: { event: true },
+        payment: true,
+      },
     });
     if (!ticket) {
       throw new NotFoundException(PaymentMessages.NOT_FOUND);
@@ -469,6 +473,7 @@ export class PaymentsService {
       payment: this.toAdminPayment(payment),
       tickets: tickets.map((ticket) => ({
         id: ticket.id,
+        ownerUserId: ticket.ownerUserId,
         ticketTypeId: ticket.ticketTypeId,
         sessionId: ticket.sessionId,
         status: ticket.status,
@@ -631,6 +636,9 @@ export class PaymentsService {
     const quantityById = new Map(
       dto.items.map((item) => [item.ticketTypeId.trim(), item.quantity]),
     );
+    const attendeesById = new Map(
+      dto.items.map((item) => [item.ticketTypeId.trim(), item.attendees]),
+    );
     const now = Date.now();
     const pricedItems: PaymentMetadata['items'] = [];
     let amountPaise = 0;
@@ -649,14 +657,25 @@ export class PaymentsService {
       if (quantity > ticket.quantity) {
         throw new ConflictException(EventMessages.INSUFFICIENT_INVENTORY);
       }
+
+      const attendees = attendeesById.get(ticket.id.trim());
+      this.assertGuestAttendees(ticket.session, quantity, attendees);
+
       const unitPricePaise = rupeesToPaise(ticket.price);
       amountPaise += unitPricePaise * quantity;
-      pricedItems.push({
+      const lineItem: PaymentMetadata['items'][number] = {
         ticketTypeId: ticket.id.trim(),
         sessionId: ticket.sessionId.trim(),
         quantity,
         unitPricePaise,
-      });
+      };
+      if (attendees && attendees.length > 0) {
+        lineItem.attendees = attendees.map((a) => ({
+          guestName: a.guestName,
+          guestAge: a.guestAge,
+        }));
+      }
+      pricedItems.push(lineItem);
       if (ticket.session?.allowReferral) {
         needsReferrer = true;
       }
@@ -672,6 +691,45 @@ export class PaymentsService {
       needsReferrer,
       needsPromoter,
     };
+  }
+
+  private assertGuestAttendees(
+    session: SessionTicketType['session'] | undefined,
+    quantity: number,
+    attendees?: Array<{ guestName?: string; guestAge?: number }>,
+  ): void {
+    if (!session) {
+      return;
+    }
+    const requireName = !!session.requireGuestName;
+    const requireAge = !!session.requireGuestAge;
+    if (!requireName && !requireAge) {
+      return;
+    }
+    if (!attendees || attendees.length !== quantity) {
+      throw new BadRequestException(
+        requireName
+          ? PaymentMessages.GUEST_NAME_REQUIRED
+          : PaymentMessages.GUEST_AGE_REQUIRED,
+      );
+    }
+    for (const attendee of attendees) {
+      if (requireName && !attendee.guestName?.trim()) {
+        throw new BadRequestException(PaymentMessages.GUEST_NAME_REQUIRED);
+      }
+      if (requireAge) {
+        const age = attendee.guestAge;
+        if (
+          age === undefined ||
+          age === null ||
+          !Number.isFinite(age) ||
+          age < 1 ||
+          age > 120
+        ) {
+          throw new BadRequestException(PaymentMessages.GUEST_AGE_REQUIRED);
+        }
+      }
+    }
   }
 
   private async assertSplitParticipants(
@@ -918,6 +976,7 @@ export class PaymentsService {
       provider: payment.provider,
       failureCode: payment.failureCode ?? null,
       failureMessage: payment.failureMessage ?? null,
+      referrerUserId: payment.referrerUserId?.trim() || null,
       createdAt: Number(payment.createdAt),
       updatedAt: Number(payment.updatedAt),
     };
@@ -946,7 +1005,7 @@ export class PaymentsService {
       this.paymentRepository.findOne({ where: { id: paymentId } }),
       this.dataSource.getRepository(IssuedTicket).find({
         where: { paymentId },
-        relations: { ticketType: true, session: { event: true } },
+        relations: { ticketType: true, session: { event: true }, owner: true },
         order: { createdAt: 'ASC' },
       }),
     ]);
@@ -957,6 +1016,8 @@ export class PaymentsService {
         | undefined;
       return {
         id: ticket.id.trim(),
+        ownerUserId: ticket.ownerUserId.trim(),
+        ownerName: ticket.owner?.fullName?.trim() || null,
         status: ticket.status,
         ticketTypeId: ticket.ticketTypeId.trim(),
         ticketTypeName: ticket.ticketType?.name ?? 'Ticket',
@@ -973,6 +1034,11 @@ export class PaymentsService {
         eventTitle: ticket.session?.event?.title ?? 'Event',
         city: address?.city ?? null,
         venue: address?.venueName ?? null,
+        guestName: ticket.guestName ?? null,
+        guestAge:
+          ticket.guestAge !== undefined && ticket.guestAge !== null
+            ? Number(ticket.guestAge)
+            : null,
         createdAt: Number(ticket.createdAt),
       };
     });

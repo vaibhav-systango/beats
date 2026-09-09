@@ -214,6 +214,14 @@ export class CreateEventSessionDto {
   @IsOptional()
   allowReferral?: boolean;
 
+  @IsBoolean()
+  @IsOptional()
+  requireGuestName?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  requireGuestAge?: boolean;
+
   @IsNumber()
   @IsOptional()
   referralRewardPerTicket?: number;
