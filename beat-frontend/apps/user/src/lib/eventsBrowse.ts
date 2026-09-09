@@ -206,7 +206,7 @@ export function buildHomeHref(params: EventsBrowseParams): string {
 
 export function radiusParam(distanceKm: number | undefined): string | undefined {
   if (distanceKm == null || !Number.isFinite(distanceKm) || distanceKm <= 0) return undefined
-  return `${Math.round(distanceKm)}km`
+  return `${Math.max(1, Math.round(distanceKm))}km`
 }
 
 export const REFERRAL_STORAGE_KEY = 'beats.checkout.referrerUserId'

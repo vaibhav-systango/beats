@@ -316,6 +316,7 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
         if (
           !slot.guestAge.trim() ||
           !Number.isFinite(age) ||
+          !Number.isInteger(age) ||
           age < 1 ||
           age > 120
         ) {
@@ -723,6 +724,7 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
                       type="number"
                       min={1}
                       max={120}
+                      step={1}
                       value={slot.guestAge}
                       onChange={(e) =>
                         updateGuestSlot(slot.key, { guestAge: e.target.value })

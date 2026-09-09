@@ -29,12 +29,27 @@ function lineupArtists(event: EventWithSessions) {
         artists.push({
           name: artist.name.trim(),
           category: artist.category,
-          socialMediaUrl: artist.socialMediaUrl,
+          socialMediaUrl: safeHttpUrl(artist.socialMediaUrl),
         })
       }
     }
   }
   return artists
+}
+
+/** Allow only http(s) profile links; drop javascript: and other schemes. */
+function safeHttpUrl(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim()
+  if (!trimmed) return undefined
+  try {
+    const parsed = new URL(trimmed)
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.href
+    }
+  } catch {
+    // invalid URL
+  }
+  return undefined
 }
 
 function faqDocuments(event: EventWithSessions) {

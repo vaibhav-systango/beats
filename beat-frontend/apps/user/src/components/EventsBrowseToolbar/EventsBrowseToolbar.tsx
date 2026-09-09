@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 
 import { Button, Input } from '@/components/ui'
 import { DISCOVERY_CITIES, EVENTS_COPY, HOME_COPY } from '@/constants'
@@ -57,6 +57,14 @@ export function EventsBrowseToolbar({
     maxPrice != null ? String(maxPrice) : ''
   )
   const [venue, setVenue] = useState<VenueTypeFilter>(venueType)
+
+  useEffect(() => {
+    setQuery(q)
+    setCityValue(city ?? '')
+    setMinPriceInput(minPrice != null ? String(minPrice) : '')
+    setMaxPriceInput(maxPrice != null ? String(maxPrice) : '')
+    setVenue(venueType)
+  }, [q, city, minPrice, maxPrice, venueType])
 
   function currentParams(
     overrides: Partial<EventsBrowseParams> = {}

@@ -41,7 +41,8 @@ function mediaUrlFromSession(session?: RawSession): string | undefined {
     const preferred =
       medias.find((item) => {
         const type = item.type?.toLowerCase()
-        return type === 'cover' || type === 'banner'
+        const url = typeof item.url === 'string' ? item.url.trim() : ''
+        return (type === 'cover' || type === 'banner') && Boolean(url)
       }) ?? medias.find((item) => typeof item.url === 'string' && item.url.trim())
     const url = preferred?.url?.trim()
     return url || undefined

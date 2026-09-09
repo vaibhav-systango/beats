@@ -117,14 +117,19 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   }
 
   const useBucketFeed = !hasActiveFilters
-  try {
-    if (useBucketFeed) {
+  if (useBucketFeed) {
+    try {
       const feed = await fetchEventsFeed({
         limit: 8,
         ...discoveryParams,
       })
       feedSections = feed.sections.filter((section) => section.data.length > 0)
+    } catch {
+      // Keep empty sections; popular fallback still loads below.
     }
+  }
+
+  try {
     popular = await fetchEvents({
       limit: 8,
       ...discoveryParams,

@@ -997,7 +997,9 @@ export class EventsService {
       return {
         data: output,
         pagination: {
-          total: output.length,
+          // Filters are applied after paging; total stays the unfiltered count
+          // (aligned with the primary search branch).
+          total,
           limit,
           offset,
         },
@@ -1180,7 +1182,37 @@ export class EventsService {
     limit?: number;
   }) {
     const limit = params.limit ?? 8;
-    const now = Date.now();
+    const ttlMs = EventConstants.DISCOVERY_CACHE_TTL_MS;
+    // Align date windows and cache key to the same TTL bucket so keys stay stable
+    // within a window (avoid unique keys from raw Date.now() each request).
+    const nowBucket = Math.floor(Date.now() / ttlMs) * ttlMs;
+
+    const cacheKey = [
+      'public:discovery:feed',
+      `limit=${limit}`,
+      `city=${(params.city ?? '').trim().toLowerCase()}`,
+      `category=${(params.category ?? '').trim().toLowerCase()}`,
+      `lat=${params.lat ?? ''}`,
+      `lng=${params.lng ?? ''}`,
+      `radius=${params.radius ?? ''}`,
+      `t=${nowBucket}`,
+    ].join(':');
+
+    const cached = await this.cacheService.get<{
+      sections: Array<{ key: string; label: string; data: unknown[] }>;
+    }>(cacheKey);
+    if (cached) {
+      this.logger.log(
+        `[CACHE] Hit for public discovery curated feed (limit: ${limit})`,
+      );
+      return cached;
+    }
+
+    this.logger.log(
+      `[CACHE] Miss for public discovery curated feed (limit: ${limit})`,
+    );
+
+    const now = nowBucket;
     const endOfToday = this.endOfLocalCalendarDay(now);
     const weekend = this.currentOrUpcomingWeekendBounds(now);
     const upcomingTo = now + 30 * 24 * 60 * 60 * 1000;
@@ -1227,13 +1259,16 @@ export class EventsService {
       ),
     ]);
 
-    return {
+    const result = {
       sections: [
         { key: 'tonight', label: 'Tonight', data: tonight.data ?? [] },
         { key: 'thisWeekend', label: 'This weekend', data: thisWeekend.data ?? [] },
         { key: 'upcoming', label: 'Upcoming', data: upcoming.data ?? [] },
       ],
     };
+
+    await this.cacheService.set(cacheKey, result, ttlMs);
+    return result;
   }
 
   private endOfLocalCalendarDay(nowMs: number): number {

@@ -72,9 +72,11 @@ export function TicketsStep({ eventId, session, onBack, onNext }: TicketsStepPro
   }
 
   const buildSessionPatch = (): UpdateSessionInput => {
-    const patch: UpdateSessionInput = {
-      requireGuestName,
-      requireGuestAge,
+    const patch: UpdateSessionInput = {}
+
+    if (session?.id || requireGuestName || requireGuestAge) {
+      patch.requireGuestName = requireGuestName
+      patch.requireGuestAge = requireGuestAge
     }
 
     if (saleStartLocal) {

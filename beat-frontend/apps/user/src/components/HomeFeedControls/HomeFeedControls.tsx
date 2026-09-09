@@ -57,6 +57,7 @@ export function HomeFeedControls({
   }, [router])
 
   useEffect(() => {
+    if (lat == null || lng == null) return
     writeDiscoveryPrefs({
       city,
       lat,
