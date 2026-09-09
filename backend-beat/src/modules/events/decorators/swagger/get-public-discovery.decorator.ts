@@ -74,6 +74,24 @@ export function GetPublicDiscoverySwagger() {
       description: 'Radius for geo-distance search (e.g. 20km)',
       type: String,
     }),
+    ApiQuery({
+      name: 'minPrice',
+      required: false,
+      description: 'Minimum ticket price in rupees',
+      type: Number,
+    }),
+    ApiQuery({
+      name: 'maxPrice',
+      required: false,
+      description: 'Maximum ticket price in rupees',
+      type: Number,
+    }),
+    ApiQuery({
+      name: 'mode',
+      required: false,
+      description: 'Filter sessions by mode (OFFLINE, ONLINE, HYBRID)',
+      type: String,
+    }),
     ApiResponse({
       status: 200,
       description: 'Public event search discovery feed retrieved successfully.',

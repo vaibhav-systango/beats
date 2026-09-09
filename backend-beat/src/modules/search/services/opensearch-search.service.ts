@@ -2,6 +2,7 @@ import { Injectable, Inject, Logger } from '@nestjs/common';
 import { Client } from '@opensearch-project/opensearch';
 import Redis from 'ioredis';
 import { SearchService } from './search.service';
+import { DatabaseSearchService } from './database-search.service';
 
 @Injectable()
 export class OpenSearchSearchService extends SearchService {
@@ -10,6 +11,7 @@ export class OpenSearchSearchService extends SearchService {
   constructor(
     @Inject('OPENSEARCH_CLIENT') private readonly opensearchClient: Client,
     @Inject('REDIS_CLIENT') private readonly redisClient: Redis,
+    private readonly databaseSearchService: DatabaseSearchService,
   ) {
     super();
   }
@@ -231,7 +233,19 @@ export class OpenSearchSearchService extends SearchService {
     radius?: string;
     limit?: number;
     offset?: number;
+    minPrice?: number;
+    maxPrice?: number;
+    mode?: string;
   }) {
+    // Price/mode are not in the OpenSearch mapping — use SQL so pagination stays correct.
+    if (
+      params.minPrice !== undefined ||
+      params.maxPrice !== undefined ||
+      params.mode
+    ) {
+      return this.databaseSearchService.search(params);
+    }
+
     const limit = params.limit ?? 10;
     const offset = params.offset ?? 0;
 

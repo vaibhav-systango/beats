@@ -122,6 +122,9 @@ export class DatabaseSearchService extends SearchService {
     radius?: string;
     limit?: number;
     offset?: number;
+    minPrice?: number;
+    maxPrice?: number;
+    mode?: string;
   }) {
     const limit = params.limit ?? 10;
     const offset = params.offset ?? 0;
@@ -215,6 +218,37 @@ export class DatabaseSearchService extends SearchService {
       }
       if (params.dateTo) {
         queryBuilder.andWhere('session.start_at <= :dateTo', { dateTo: params.dateTo });
+      }
+
+      // 5b. Session mode
+      if (params.mode) {
+        queryBuilder.andWhere('session.mode = :mode', { mode: params.mode });
+      }
+
+      // 5c. Ticket price range (rupees) via EXISTS on session_ticket_types
+      if (params.minPrice !== undefined || params.maxPrice !== undefined) {
+        queryBuilder.andWhere((qb) => {
+          const subQueryBuilder = qb
+            .subQuery()
+            .select('1')
+            .from('session_ticket_types', 'stt')
+            .where('stt.session_id = session.id');
+
+          if (params.minPrice !== undefined) {
+            subQueryBuilder.andWhere('stt.price >= :minPrice');
+          }
+          if (params.maxPrice !== undefined) {
+            subQueryBuilder.andWhere('stt.price <= :maxPrice');
+          }
+
+          return `EXISTS (${subQueryBuilder.getQuery()})`;
+        });
+        if (params.minPrice !== undefined) {
+          queryBuilder.setParameter('minPrice', params.minPrice);
+        }
+        if (params.maxPrice !== undefined) {
+          queryBuilder.setParameter('maxPrice', params.maxPrice);
+        }
       }
 
       // 6. Geo Distance filter & select

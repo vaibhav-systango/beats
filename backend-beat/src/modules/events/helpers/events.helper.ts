@@ -233,6 +233,14 @@ export class EventsHelper {
     if (parsed.allowReferral !== undefined && parsed.allowReferral !== null) {
       parsed.allowReferral = parsed.allowReferral === 'true' || parsed.allowReferral === true;
     }
+    if (parsed.requireGuestName !== undefined && parsed.requireGuestName !== null) {
+      parsed.requireGuestName =
+        parsed.requireGuestName === 'true' || parsed.requireGuestName === true;
+    }
+    if (parsed.requireGuestAge !== undefined && parsed.requireGuestAge !== null) {
+      parsed.requireGuestAge =
+        parsed.requireGuestAge === 'true' || parsed.requireGuestAge === true;
+    }
     if (parsed.allowPromoters !== undefined && parsed.allowPromoters !== null) {
       parsed.allowPromoters = parsed.allowPromoters === 'true' || parsed.allowPromoters === true;
     }
