@@ -1,4 +1,4 @@
-import type { Event, EventWithSessions } from '@beat/types'
+import type { DiscoveryFeedResponse, Event, EventWithSessions } from '@beat/types'
 
 import { API_CONSTANTS } from '../../../constants/api.constants'
 import { PAGINATION_CONSTANTS } from '../../../constants/pagination.constants'
@@ -94,6 +94,12 @@ export async function fetchEvents(
         ...(params.category ? { category: params.category } : {}),
         ...(params.dateFrom != null ? { dateFrom: params.dateFrom } : {}),
         ...(params.dateTo != null ? { dateTo: params.dateTo } : {}),
+        ...(params.lat != null ? { lat: params.lat } : {}),
+        ...(params.lng != null ? { lng: params.lng } : {}),
+        ...(params.radius ? { radius: params.radius } : {}),
+        ...(params.minPrice != null ? { minPrice: params.minPrice } : {}),
+        ...(params.maxPrice != null ? { maxPrice: params.maxPrice } : {}),
+        ...(params.mode ? { mode: params.mode } : {}),
       },
     }
   )
@@ -105,6 +111,40 @@ export async function fetchEvents(
   return {
     ...meta,
     data: rows.map((item) => normalizeEventEntity(item)),
+  }
+}
+
+/**
+ * GET /api/v1/events/feed — Time-bucketed discovery sections for home.
+ */
+export async function fetchEventsFeed(
+  params: Pick<
+    GetEventsParams,
+    'city' | 'category' | 'lat' | 'lng' | 'radius' | 'limit'
+  > = {}
+): Promise<DiscoveryFeedResponse> {
+  const { data } = await apiClient.get<{
+    sections?: Array<{ key?: string; label?: string; data?: unknown }>
+  }>(API_CONSTANTS.EVENTS_FEED, {
+    params: {
+      limit: params.limit ?? 8,
+      ...(params.city ? { city: params.city } : {}),
+      ...(params.category ? { category: params.category } : {}),
+      ...(params.lat != null ? { lat: params.lat } : {}),
+      ...(params.lng != null ? { lng: params.lng } : {}),
+      ...(params.radius ? { radius: params.radius } : {}),
+    },
+  })
+
+  const sections = Array.isArray(data?.sections) ? data.sections : []
+  return {
+    sections: sections.map((section) => ({
+      key: section.key ?? 'upcoming',
+      label: section.label ?? 'Events',
+      data: Array.isArray(section.data)
+        ? section.data.map((item) => normalizeEventEntity(item))
+        : [],
+    })),
   }
 }
 

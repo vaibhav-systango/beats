@@ -2,6 +2,7 @@ export const API_V1_PREFIX = '/api/v1' as const
 
 export const API_CONSTANTS = {
   EVENTS_LIST: `${API_V1_PREFIX}/events`,
+  EVENTS_FEED: `${API_V1_PREFIX}/events/feed`,
   EVENTS_CREATE: `${API_V1_PREFIX}/events`,
   EVENTS_MY: `${API_V1_PREFIX}/events/my-events`,
   EVENT_BY_ID: (id: string) => `${API_V1_PREFIX}/events/${id}`,

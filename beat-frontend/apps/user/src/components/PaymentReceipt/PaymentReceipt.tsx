@@ -117,6 +117,9 @@ export function PaymentReceipt({ paymentId }: PaymentReceiptProps) {
             <p className="text-xs text-muted-foreground">{payment.provider}</p>
           </div>
         </div>
+        {payment.status === 'SUCCEEDED' && payment.referrerUserId ? (
+          <p className="mt-4 text-sm text-muted-foreground">{RECEIPT_COPY.REFERRAL_REWARD}</p>
+        ) : null}
       </div>
 
       <h2 className="mt-10 text-xl font-semibold text-foreground">
@@ -158,6 +161,20 @@ export function PaymentReceipt({ paymentId }: PaymentReceiptProps) {
                     {[ticket.venue, ticket.city].filter(Boolean).join(' · ')}
                   </p>
                 )}
+                {ticket.ownerName ? (
+                  <p className="mt-2 text-sm text-foreground">
+                    {RECEIPT_COPY.OWNED_BY}{' '}
+                    <span className="font-medium">{ticket.ownerName}</span>
+                  </p>
+                ) : null}
+                {ticket.guestName || ticket.guestAge != null ? (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {RECEIPT_COPY.GUEST_LABEL}:{' '}
+                    {[ticket.guestName, ticket.guestAge != null ? `age ${ticket.guestAge}` : null]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                ) : null}
                 <p className="mt-3 font-mono text-xs text-muted-foreground">
                   {RECEIPT_COPY.TICKET_ID}: {ticket.id}
                 </p>

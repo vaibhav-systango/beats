@@ -34,7 +34,7 @@ export class AuthService {
     );
     const purpose = user ? OtpPurpose.LOGIN : OtpPurpose.SIGNUP;
 
-    return await OtpHelper.issueOtpForPurpose(
+    const result = await OtpHelper.issueOtpForPurpose(
       this.otpRepository,
       countryCode,
       phoneNumber,
@@ -62,6 +62,8 @@ export class AuthService {
         }
       },
     );
+
+    return { message: result.message };
   }
   async verifyOtp(dto: VerifyOtpDto, reqMetadata?: Record<string, any>) {
     const { countryCode, phoneNumber, accountType, otpCode } = dto;

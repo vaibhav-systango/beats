@@ -11,6 +11,7 @@ import {
   getAccessToken,
   getApiErrorMessage,
   verifyPayment,
+  type PaymentAttendeeInput,
   type RazorpayClientPayload,
   type SessionTicketItem,
   type SessionTicketsResponse,
@@ -20,11 +21,25 @@ import { formatEventDateTime } from '@beat/utils'
 
 import { Button } from '@/components/ui'
 import { EVENT_TICKETS_COPY, USER_ROUTES } from '@/constants'
-import { formatTicketPrice } from '@/lib'
+import {
+  captureReferrerFromSearch,
+  formatTicketPrice,
+  readStoredReferrerUserId,
+} from '@/lib'
 import { useAuthStore } from '@/store/auth.store'
 
 type TicketCheckoutProps = {
   eventId: string
+}
+
+type CheckoutStep = 'tickets' | 'guests' | 'summary'
+
+type GuestSlot = {
+  key: string
+  ticketTypeId: string
+  ticketName: string
+  guestName: string
+  guestAge: string
 }
 
 type RazorpaySuccessResponse = {
@@ -91,11 +106,38 @@ function normalizeCatalog(response: SessionTicketsResponse): SessionTicketsRespo
     ...response,
     sessionId: response.sessionId.trim(),
     eventId: response.eventId.trim(),
+    requireGuestName: !!response.requireGuestName,
+    requireGuestAge: !!response.requireGuestAge,
+    allowReferral: !!response.allowReferral,
     tickets: response.tickets.map((ticket) => ({
       ...ticket,
       id: ticket.id.trim(),
     })),
   }
+}
+
+function buildGuestSlots(
+  items: Array<{ ticket: SessionTicketItem; quantity: number }>,
+  previous: GuestSlot[]
+): GuestSlot[] {
+  const previousByKey = new Map(previous.map((slot) => [slot.key, slot]))
+  const next: GuestSlot[] = []
+
+  for (const row of items) {
+    for (let index = 0; index < row.quantity; index += 1) {
+      const key = `${row.ticket.id}:${index}`
+      const existing = previousByKey.get(key)
+      next.push({
+        key,
+        ticketTypeId: row.ticket.id,
+        ticketName: row.ticket.name,
+        guestName: existing?.guestName ?? '',
+        guestAge: existing?.guestAge ?? '',
+      })
+    }
+  }
+
+  return next
 }
 
 export function TicketCheckout({ eventId }: TicketCheckoutProps) {
@@ -107,6 +149,9 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
   const [selectedSessionId, setSelectedSessionId] = useState('')
   const [catalog, setCatalog] = useState<SessionTicketsResponse | null>(null)
   const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [step, setStep] = useState<CheckoutStep>('tickets')
+  const [guestSlots, setGuestSlots] = useState<GuestSlot[]>([])
+  const [referrerUserId, setReferrerUserId] = useState<string | null>(null)
   const [loadingEvent, setLoadingEvent] = useState(true)
   const [loadingTickets, setLoadingTickets] = useState(false)
   const [paying, setPaying] = useState(false)
@@ -118,6 +163,21 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
   }, [])
 
   useEffect(() => {
+    if (!authReady) return
+    if (isAuthenticated || getAccessToken()) return
+    router.replace(
+      `${USER_ROUTES.LOGIN}?next=${encodeURIComponent(USER_ROUTES.EVENT_TICKETS(eventId))}`
+    )
+  }, [authReady, eventId, isAuthenticated, router])
+
+  useEffect(() => {
+    captureReferrerFromSearch(window.location.search)
+    setReferrerUserId(readStoredReferrerUserId())
+  }, [])
+
+  useEffect(() => {
+    if (!authReady || (!isAuthenticated && !getAccessToken())) return
+
     let cancelled = false
 
     async function loadEvent() {
@@ -139,12 +199,14 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
     return () => {
       cancelled = true
     }
-  }, [eventId])
+  }, [authReady, eventId, isAuthenticated])
 
   useEffect(() => {
     if (!selectedSessionId) {
       setCatalog(null)
       setQuantities({})
+      setStep('tickets')
+      setGuestSlots([])
       return
     }
 
@@ -154,6 +216,8 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
       setLoadingTickets(true)
       setCatalog(null)
       setQuantities({})
+      setStep('tickets')
+      setGuestSlots([])
       setError(null)
       try {
         const response = normalizeCatalog(await fetchSessionTickets(selectedSessionId))
@@ -201,10 +265,20 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
     idempotencyKeyRef.current = null
   }, [cartFingerprint, eventId, selectedSessionId])
 
-  const total = useMemo(
+  useEffect(() => {
+    setGuestSlots((previous) => buildGuestSlots(selectedItems, previous))
+  }, [selectedItems])
+
+  const requireGuestName = !!catalog?.requireGuestName
+  const requireGuestAge = !!catalog?.requireGuestAge
+  const needsGuestStep = requireGuestName || requireGuestAge
+
+  const faceValue = useMemo(
     () => selectedItems.reduce((sum, row) => sum + row.ticket.price * row.quantity, 0),
     [selectedItems]
   )
+
+  const creditsEarnEstimate = useMemo(() => Math.round(faceValue * 0.02), [faceValue])
 
   const setQuantity = useCallback((ticketId: string, next: number) => {
     setQuantities((current) => ({
@@ -213,6 +287,15 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
     }))
   }, [])
 
+  const updateGuestSlot = useCallback(
+    (key: string, patch: Partial<Pick<GuestSlot, 'guestName' | 'guestAge'>>) => {
+      setGuestSlots((current) =>
+        current.map((slot) => (slot.key === key ? { ...slot, ...patch } : slot))
+      )
+    },
+    []
+  )
+
   const requireAuth = useCallback(() => {
     if (isAuthenticated || getAccessToken()) return true
     router.push(
@@ -220,6 +303,46 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
     )
     return false
   }, [eventId, isAuthenticated, router])
+
+  const validateGuests = useCallback((): boolean => {
+    if (!needsGuestStep) return true
+    for (const slot of guestSlots) {
+      if (requireGuestName && !slot.guestName.trim()) {
+        setError(EVENT_TICKETS_COPY.GUEST_REQUIRED)
+        return false
+      }
+      if (requireGuestAge) {
+        const age = Number(slot.guestAge)
+        if (
+          !slot.guestAge.trim() ||
+          !Number.isFinite(age) ||
+          age < 1 ||
+          age > 120
+        ) {
+          setError(EVENT_TICKETS_COPY.GUEST_REQUIRED)
+          return false
+        }
+      }
+    }
+    return true
+  }, [guestSlots, needsGuestStep, requireGuestAge, requireGuestName])
+
+  const attendeesByTicketType = useCallback((): Map<string, PaymentAttendeeInput[]> => {
+    const map = new Map<string, PaymentAttendeeInput[]>()
+    for (const slot of guestSlots) {
+      const attendees = map.get(slot.ticketTypeId) ?? []
+      const attendee: PaymentAttendeeInput = {}
+      if (requireGuestName) {
+        attendee.guestName = slot.guestName.trim()
+      }
+      if (requireGuestAge) {
+        attendee.guestAge = Number(slot.guestAge)
+      }
+      attendees.push(attendee)
+      map.set(slot.ticketTypeId, attendees)
+    }
+    return map
+  }, [guestSlots, requireGuestAge, requireGuestName])
 
   const openRazorpayCheckout = useCallback(
     async (paymentId: string, client: RazorpayClientPayload) => {
@@ -290,12 +413,43 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
     [catalog?.eventTitle, event?.title, router, user?.email, user?.fullName, user?.phone]
   )
 
+  const handleContinueFromTickets = () => {
+    setError(null)
+    if (selectedItems.length === 0) {
+      setError(EVENT_TICKETS_COPY.SELECT_TICKETS)
+      return
+    }
+    if (needsGuestStep) {
+      setStep('guests')
+      return
+    }
+    setStep('summary')
+  }
+
+  const handleContinueFromGuests = () => {
+    setError(null)
+    if (!validateGuests()) return
+    setStep('summary')
+  }
+
   const handlePay = async () => {
     if (paying || loadingTickets) return
     setError(null)
     if (!requireAuth()) return
     if (selectedItems.length === 0) {
       setError(EVENT_TICKETS_COPY.SELECT_TICKETS)
+      return
+    }
+    if (needsGuestStep && !validateGuests()) {
+      setStep('guests')
+      return
+    }
+
+    const storedReferrer = referrerUserId ?? readStoredReferrerUserId()
+    if (catalog?.allowReferral && !storedReferrer) {
+      setError(
+        'This session requires a referral invite link before checkout. Open the share link and try again.'
+      )
       return
     }
 
@@ -305,12 +459,18 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
         idempotencyKeyRef.current = crypto.randomUUID()
       }
 
+      const attendeesMap = needsGuestStep ? attendeesByTicketType() : null
+
       const payment = await createPayment({
         items: selectedItems.map((row) => ({
           ticketTypeId: row.ticket.id,
           quantity: row.quantity,
+          ...(attendeesMap
+            ? { attendees: attendeesMap.get(row.ticket.id) ?? [] }
+            : {}),
         })),
         idempotencyKey: idempotencyKeyRef.current,
+        ...(storedReferrer ? { referrerUserId: storedReferrer } : {}),
       })
 
       if (payment.status === 'SUCCEEDED') {
@@ -331,6 +491,14 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
       setError(checkoutErrorMessage(err, 'Could not start checkout'))
       setPaying(false)
     }
+  }
+
+  if (!authReady || (!isAuthenticated && !getAccessToken())) {
+    return (
+      <section className="mx-auto max-w-3xl px-6 py-16 text-muted-foreground">
+        {EVENT_TICKETS_COPY.LOADING}
+      </section>
+    )
   }
 
   if (loadingEvent) {
@@ -373,11 +541,11 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
       </Link>
 
       <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground">
-        {EVENT_TICKETS_COPY.TITLE}
+        {step === 'summary' ? EVENT_TICKETS_COPY.ORDER_SUMMARY : EVENT_TICKETS_COPY.TITLE}
       </h1>
       <p className="mt-2 text-muted-foreground">{event.title}</p>
 
-      {sessions.length > 1 ? (
+      {step === 'tickets' && sessions.length > 1 ? (
         <div className="mt-8 space-y-2">
           <label htmlFor="session" className="text-sm font-medium text-foreground">
             {EVENT_TICKETS_COPY.SESSION_LABEL}
@@ -412,91 +580,289 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
         </div>
       ) : null}
 
-      <div className="mt-8 space-y-3">
-        {loadingTickets ? (
-          <p className="text-muted-foreground">{EVENT_TICKETS_COPY.LOADING_TICKETS}</p>
-        ) : !catalog || catalog.tickets.length === 0 ? (
-          <p className="rounded-lg border border-border bg-card px-4 py-8 text-center text-muted-foreground">
-            {EVENT_TICKETS_COPY.EMPTY}
-          </p>
-        ) : (
-          catalog.tickets.map((ticket) => {
-            const qty = quantities[ticket.id] ?? 0
-            const maxQty = Math.min(
-              ticket.maxPurchaseLimit || 10,
-              ticket.remainingQuantity || 0
-            )
-            const disabled = !ticket.canPurchase || ticket.isSoldOut || maxQty <= 0
+      {step === 'tickets' ? (
+        <>
+          <div className="mt-8 space-y-3">
+            {loadingTickets ? (
+              <p className="text-muted-foreground">{EVENT_TICKETS_COPY.LOADING_TICKETS}</p>
+            ) : !catalog || catalog.tickets.length === 0 ? (
+              <p className="rounded-lg border border-border bg-card px-4 py-8 text-center text-muted-foreground">
+                {EVENT_TICKETS_COPY.EMPTY}
+              </p>
+            ) : (
+              catalog.tickets.map((ticket) => {
+                const qty = quantities[ticket.id] ?? 0
+                const maxQty = Math.min(
+                  ticket.maxPurchaseLimit || 10,
+                  ticket.remainingQuantity || 0
+                )
+                const disabled = !ticket.canPurchase || ticket.isSoldOut || maxQty <= 0
 
-            return (
-              <div
-                key={ticket.id}
-                className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+                return (
+                  <div
+                    key={ticket.id}
+                    className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">{ticket.name}</p>
+                      {ticket.description ? (
+                        <p className="mt-1 text-sm text-muted-foreground">{ticket.description}</p>
+                      ) : null}
+                      <p className="mt-2 text-sm text-accent">
+                        {formatTicketPrice(ticket.price)}
+                        {ticket.isSoldOut ? ' · Sold out' : ` · ${ticket.remainingQuantity} left`}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        disabled={disabled || qty <= 0 || paying}
+                        onClick={() => setQuantity(ticket.id, qty - 1)}
+                        aria-label={`Decrease ${ticket.name}`}
+                      >
+                        −
+                      </Button>
+                      <span className="min-w-8 text-center text-sm font-medium">{qty}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        disabled={disabled || qty >= maxQty || paying}
+                        onClick={() => setQuantity(ticket.id, qty + 1)}
+                        aria-label={`Increase ${ticket.name}`}
+                      >
+                        +
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          <div className="sticky bottom-4 mt-8 rounded-lg border border-border bg-background/95 p-4 shadow-lg backdrop-blur">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">{EVENT_TICKETS_COPY.TOTAL}</p>
+                <p className="text-xl font-semibold text-foreground">
+                  {formatTicketPrice(faceValue)}
+                </p>
+                {authReady && !isAuthenticated && !getAccessToken() ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {EVENT_TICKETS_COPY.SIGN_IN_HINT}
+                  </p>
+                ) : null}
+              </div>
+              <Button
+                type="button"
+                size="lg"
+                disabled={paying || loadingTickets || selectedItems.length === 0}
+                onClick={handleContinueFromTickets}
+                className="min-w-[10rem]"
               >
+                {EVENT_TICKETS_COPY.CONTINUE_GUESTS}
+              </Button>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {step === 'guests' ? (
+        <div className="mt-8 space-y-6">
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">
+              {EVENT_TICKETS_COPY.GUEST_DETAILS_HEADING}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {EVENT_TICKETS_COPY.GUEST_DETAILS_HINT}
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {guestSlots.map((slot, index) => (
+              <div
+                key={slot.key}
+                className="space-y-3 rounded-lg border border-border bg-card p-4"
+              >
+                <p className="text-sm font-medium text-foreground">
+                  {slot.ticketName} · Attendee {index + 1}
+                </p>
+                {requireGuestName ? (
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor={`guest-name-${slot.key}`}
+                      className="text-sm text-muted-foreground"
+                    >
+                      {EVENT_TICKETS_COPY.GUEST_NAME}
+                    </label>
+                    <input
+                      id={`guest-name-${slot.key}`}
+                      type="text"
+                      value={slot.guestName}
+                      onChange={(e) =>
+                        updateGuestSlot(slot.key, { guestName: e.target.value })
+                      }
+                      className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+                      disabled={paying}
+                    />
+                  </div>
+                ) : null}
+                {requireGuestAge ? (
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor={`guest-age-${slot.key}`}
+                      className="text-sm text-muted-foreground"
+                    >
+                      {EVENT_TICKETS_COPY.GUEST_AGE}
+                    </label>
+                    <input
+                      id={`guest-age-${slot.key}`}
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={slot.guestAge}
+                      onChange={(e) =>
+                        updateGuestSlot(slot.key, { guestAge: e.target.value })
+                      }
+                      className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+                      disabled={paying}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={paying}
+              onClick={() => {
+                setError(null)
+                setStep('tickets')
+              }}
+            >
+              {EVENT_TICKETS_COPY.BACK_TO_TICKETS}
+            </Button>
+            <Button
+              type="button"
+              disabled={paying || guestSlots.length === 0}
+              onClick={handleContinueFromGuests}
+            >
+              {EVENT_TICKETS_COPY.CONTINUE_GUESTS}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {step === 'summary' ? (
+        <div className="mt-8 space-y-6">
+          <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+            {selectedItems.map((row) => (
+              <div
+                key={row.ticket.id}
+                className="flex items-center justify-between gap-3 text-sm"
+              >
+                <p className="text-foreground">
+                  {row.ticket.name} × {row.quantity}
+                </p>
+                <p className="font-medium text-foreground">
+                  {formatTicketPrice(row.ticket.price * row.quantity)}
+                </p>
+              </div>
+            ))}
+
+            <div className="border-t border-border pt-3 space-y-2 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-muted-foreground">{EVENT_TICKETS_COPY.FACE_VALUE}</p>
+                <p className="font-medium text-foreground">{formatTicketPrice(faceValue)}</p>
+              </div>
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="font-medium text-foreground">{ticket.name}</p>
-                  {ticket.description ? (
-                    <p className="mt-1 text-sm text-muted-foreground">{ticket.description}</p>
-                  ) : null}
-                  <p className="mt-2 text-sm text-accent">
-                    {formatTicketPrice(ticket.price)}
-                    {ticket.isSoldOut ? ' · Sold out' : ` · ${ticket.remainingQuantity} left`}
+                  <p className="text-muted-foreground">{EVENT_TICKETS_COPY.TAXES}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {EVENT_TICKETS_COPY.TAXES_INCLUDED}
                   </p>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    disabled={disabled || qty <= 0 || paying}
-                    onClick={() => setQuantity(ticket.id, qty - 1)}
-                    aria-label={`Decrease ${ticket.name}`}
-                  >
-                    −
-                  </Button>
-                  <span className="min-w-8 text-center text-sm font-medium">{qty}</span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    disabled={disabled || qty >= maxQty || paying}
-                    onClick={() => setQuantity(ticket.id, qty + 1)}
-                    aria-label={`Increase ${ticket.name}`}
-                  >
-                    +
-                  </Button>
-                </div>
+                <p className="font-medium text-foreground">{formatTicketPrice(0)}</p>
               </div>
-            )
-          })
-        )}
-      </div>
+            </div>
+          </div>
 
-      <div className="sticky bottom-4 mt-8 rounded-lg border border-border bg-background/95 p-4 shadow-lg backdrop-blur">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">{EVENT_TICKETS_COPY.TOTAL}</p>
-            <p className="text-xl font-semibold text-foreground">
-              {formatTicketPrice(total)}
+          <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+            <p className="text-sm font-medium text-foreground">
+              {EVENT_TICKETS_COPY.BEAT_CREDITS}
             </p>
-            {authReady && !isAuthenticated && !getAccessToken() ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {EVENT_TICKETS_COPY.SIGN_IN_HINT}
+            <p className="text-sm text-muted-foreground">
+              {EVENT_TICKETS_COPY.BEAT_CREDITS_EARN}{' '}
+              <span className="font-medium text-foreground">
+                {formatTicketPrice(creditsEarnEstimate)}
+              </span>
+            </p>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                disabled
+                checked={false}
+                className="h-4 w-4 rounded border-border"
+              />
+              {EVENT_TICKETS_COPY.BEAT_CREDITS_BURN}
+            </label>
+            <p className="text-xs text-muted-foreground">
+              {EVENT_TICKETS_COPY.BEAT_CREDITS_UNAVAILABLE}
+            </p>
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-border bg-card p-4">
+            <p className="text-sm font-medium text-foreground">
+              {EVENT_TICKETS_COPY.PAYMENT_METHOD}
+            </p>
+            <p className="text-sm text-foreground">{EVENT_TICKETS_COPY.PAYMENT_RAZORPAY}</p>
+            {referrerUserId ? (
+              <p className="mt-2 inline-flex rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
+                {EVENT_TICKETS_COPY.REFERRAL_BADGE}
               </p>
             ) : null}
           </div>
-          <Button
-            type="button"
-            size="lg"
-            disabled={paying || loadingTickets || selectedItems.length === 0}
-            onClick={() => void handlePay()}
-            className="min-w-[10rem]"
-          >
-            {paying ? EVENT_TICKETS_COPY.PROCESSING : EVENT_TICKETS_COPY.PAY_CTA}
-          </Button>
+
+          <div className="sticky bottom-4 rounded-lg border border-border bg-background/95 p-4 shadow-lg backdrop-blur">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">{EVENT_TICKETS_COPY.TOTAL}</p>
+                <p className="text-xl font-semibold text-foreground">
+                  {formatTicketPrice(faceValue)}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={paying}
+                  onClick={() => {
+                    setError(null)
+                    setStep(needsGuestStep ? 'guests' : 'tickets')
+                  }}
+                >
+                  {needsGuestStep ? 'Back' : EVENT_TICKETS_COPY.BACK_TO_TICKETS}
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  disabled={paying || loadingTickets || selectedItems.length === 0}
+                  onClick={() => void handlePay()}
+                  className="min-w-[10rem]"
+                >
+                  {paying ? EVENT_TICKETS_COPY.PROCESSING : EVENT_TICKETS_COPY.PAY_CTA}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      ) : null}
     </section>
   )
 }

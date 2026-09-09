@@ -40,6 +40,26 @@ export interface GetEventsParams {
   category?: string
   dateFrom?: number
   dateTo?: number
+  lat?: number
+  lng?: number
+  /** e.g. `25km` — passed through to discovery/geo search */
+  radius?: string
+  minPrice?: number
+  maxPrice?: number
+  /** Session mode used as venue-type filter: OFFLINE | ONLINE | HYBRID */
+  mode?: 'OFFLINE' | 'ONLINE' | 'HYBRID'
+}
+
+export type DiscoveryFeedSectionKey = 'tonight' | 'thisWeekend' | 'upcoming'
+
+export interface DiscoveryFeedSection {
+  key: DiscoveryFeedSectionKey | string
+  label: string
+  data: Event[]
+}
+
+export interface DiscoveryFeedResponse {
+  sections: DiscoveryFeedSection[]
 }
 
 export interface CreateEventInput {

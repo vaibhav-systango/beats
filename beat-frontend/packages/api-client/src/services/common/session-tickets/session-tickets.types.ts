@@ -19,5 +19,8 @@ export type SessionTicketsResponse = {
   eventTitle: string
   ticketSaleStartAt: number
   ticketSaleEndAt: number
+  requireGuestName?: boolean
+  requireGuestAge?: boolean
+  allowReferral?: boolean
   tickets: SessionTicketItem[]
 }

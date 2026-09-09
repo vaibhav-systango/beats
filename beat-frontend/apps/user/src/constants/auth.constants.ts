@@ -36,7 +36,8 @@ export const AUTH_COPY = {
   RESEND_CODE_BUTTON: (deliveryLabel: string) => `Resend code ${deliveryLabel}`,
   TERMS_NOTICE: 'By continuing, you agree to our Terms of Service and Privacy Policy.',
   DELIVERY_LABEL_SMS: 'via text message',
-  DELIVERY_LABEL_VOICE: 'via phone call',
+  DELIVERY_LABEL_VOICE:
+    'via phone call (press any key if Twilio asks, then listen for the code)',
 } as const
 
 export const DELIVERY_OPTIONS: {
@@ -52,6 +53,7 @@ export const DELIVERY_OPTIONS: {
   {
     value: 'VOICE',
     label: 'Phone call',
-    description: 'Get your code read aloud on a call',
+    description:
+      'Get a call with your code. On Twilio trial, press any key first, then listen for the digits.',
   },
 ]

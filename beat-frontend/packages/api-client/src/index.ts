@@ -48,6 +48,7 @@ export { QUERY_KEYS } from './services/queryKeys'
 
 export {
   fetchEvents,
+  fetchEventsFeed,
   getEvents,
   createEvent,
   fetchPublicEventById,
@@ -99,6 +100,7 @@ export type {
   SessionTicketItem,
   SessionTicketsResponse,
   PaymentStatus,
+  PaymentAttendeeInput,
   CreatePaymentItem,
   CreatePaymentInput,
   RazorpayClientPayload,

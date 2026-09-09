@@ -18,6 +18,9 @@ export async function fetchSessionTickets(
       ...data,
       sessionId: data.sessionId.trim(),
       eventId: data.eventId.trim(),
+      requireGuestName: !!data.requireGuestName,
+      requireGuestAge: !!data.requireGuestAge,
+      allowReferral: !!data.allowReferral,
       tickets: data.tickets.map((ticket) => ({
         ...ticket,
         id: ticket.id.trim(),

@@ -6,6 +6,7 @@ export {
 } from './payments.api'
 export type {
   PaymentStatus,
+  PaymentAttendeeInput,
   CreatePaymentItem,
   CreatePaymentInput,
   RazorpayClientPayload,

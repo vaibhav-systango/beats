@@ -26,11 +26,31 @@ export class TwilioOtpProvider {
     }
   }
 
+  /** Simulation only when explicitly enabled outside production. */
+  private shouldSimulate(): boolean {
+    if (process.env.OTP_SIMULATE_ON_FAILURE !== 'true') return false;
+    const env = process.env.NODE_ENV;
+    return env === 'development' || env === 'local' || env === 'test';
+  }
+
+  private simulateDelivery(channel: 'SMS' | 'VOICE', phoneNumber: string) {
+    this.logger.warn(
+      `Simulated ${channel} OTP delivery to ${phoneNumber} (Twilio unavailable or failed)`,
+    );
+  }
+
+  private assertCanSimulateOrThrow(error?: unknown): void {
+    if (this.shouldSimulate()) return;
+    if (error) {
+      this.handleTwilioError(error);
+    }
+    throw new InternalServerErrorException(AuthMessages.TWILIO_GENERIC_ERROR);
+  }
+
   async sendSmsOtp(phoneNumber: string, otp: string): Promise<void> {
     if (!this.twilioClient || !this.fromPhoneNumber) {
-      this.logger.warn(
-        `Twilio not configured. Simulated SMS OTP ${otp} to ${phoneNumber}`,
-      );
+      this.assertCanSimulateOrThrow();
+      this.simulateDelivery('SMS', phoneNumber);
       return;
     }
 
@@ -47,25 +67,29 @@ export class TwilioOtpProvider {
 
       this.logger.log(`OTP SMS sent successfully to ${phoneNumber}`);
     } catch (error) {
+      if (this.shouldSimulate()) {
+        this.logger.error(
+          `Twilio SMS failed; falling back to simulation. ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        this.simulateDelivery('SMS', phoneNumber);
+        return;
+      }
       this.handleTwilioError(error);
     }
   }
 
   async sendVoiceOtp(phoneNumber: string, otp: string): Promise<void> {
     if (!this.twilioClient || !this.fromPhoneNumber) {
-      this.logger.warn(
-        `Twilio not configured. Simulated Voice OTP ${otp} to ${phoneNumber}`,
-      );
+      this.assertCanSimulateOrThrow();
+      this.simulateDelivery('VOICE', phoneNumber);
       return;
     }
 
     try {
-      // Splitting OTP with spaces ensures the Voice synthesis reads it character by character
-      const spokenOtp = otp.split('').join(' ');
-
       const call = await this.twilioClient.calls.create({
-        // Added a 2-second pause and a loop to ensure the OTP is heard after the Twilio trial greeting
-        twiml: `<Response><Pause length="2"/><Say loop="3">Your verification code is ${spokenOtp}. I repeat, ${spokenOtp}.</Say></Response>`,
+        twiml: this.buildVoiceOtpTwiml(otp),
         from: this.fromPhoneNumber,
         to: phoneNumber,
       });
@@ -78,13 +102,51 @@ export class TwilioOtpProvider {
         `OTP Voice Call initiated successfully to ${phoneNumber}`,
       );
     } catch (error) {
+      if (this.shouldSimulate()) {
+        this.logger.error(
+          `Twilio voice failed; falling back to simulation. ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        this.simulateDelivery('VOICE', phoneNumber);
+        return;
+      }
       this.handleTwilioError(error);
     }
   }
 
-  private handleTwilioError(error: any): never {
-    const code = error?.code;
-    const message = error?.message || 'Unknown Twilio Error';
+  /**
+   * Trial accounts play a “press any key” disclaimer first. After that, speak
+   * each OTP digit slowly so the code is audible.
+   */
+  private buildVoiceOtpTwiml(otp: string): string {
+    const digits = otp.replace(/\D/g, '').split('');
+    const digitSays = digits
+      .map(
+        (digit) =>
+          `<Say voice="Polly.Joanna" language="en-US">${digit}</Say><Pause length="1"/>`,
+      )
+      .join('');
+
+    return [
+      '<Response>',
+      // Give the callee time to answer and dismiss the Twilio trial prompt.
+      '<Pause length="5"/>',
+      '<Say voice="Polly.Joanna" language="en-US">This is Beats. Your one time password is.</Say>',
+      '<Pause length="1"/>',
+      digitSays,
+      '<Say voice="Polly.Joanna" language="en-US">Again, your code is.</Say>',
+      '<Pause length="1"/>',
+      digitSays,
+      '<Say voice="Polly.Joanna" language="en-US">Goodbye.</Say>',
+      '</Response>',
+    ].join('');
+  }
+
+  private handleTwilioError(error: unknown): never {
+    const err = error as { code?: string | number; message?: string };
+    const code = Number(err?.code);
+    const message = err?.message || 'Unknown Twilio Error';
 
     this.logger.error(`Twilio Error: ${message} (Code: ${code})`);
 

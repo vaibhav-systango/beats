@@ -50,6 +50,12 @@ function appendSessionFields(formData: FormData, input: SessionFormInput): void 
   if (input.ticketTypes !== undefined) {
     formData.append('ticketTypes', JSON.stringify(input.ticketTypes))
   }
+  if (input.requireGuestName !== undefined) {
+    formData.append('requireGuestName', input.requireGuestName ? 'true' : 'false')
+  }
+  if (input.requireGuestAge !== undefined) {
+    formData.append('requireGuestAge', input.requireGuestAge ? 'true' : 'false')
+  }
   if (input.eventSessionMedias !== undefined) {
     formData.append('eventSessionMedias', JSON.stringify(input.eventSessionMedias))
   }
