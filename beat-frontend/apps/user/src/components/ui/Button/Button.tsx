@@ -6,9 +6,9 @@ const variantClasses = {
   default: 'bg-primary text-primary-foreground hover:bg-primary/90',
   destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
   outline:
-    'border border-input bg-transparent shadow-sm hover:bg-accent hover:text-accent-foreground',
+    'border border-input bg-card shadow-sm hover:bg-secondary hover:text-foreground',
   secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-  ghost: 'hover:bg-accent hover:text-accent-foreground',
+  ghost: 'hover:bg-secondary hover:text-foreground',
   link: 'text-primary underline-offset-4 hover:underline',
 } as const
 

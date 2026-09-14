@@ -150,7 +150,7 @@ export function HomeFeedControls({
           <select
             value={city ?? ''}
             onChange={(event) => onCityChange(event.target.value)}
-            className="beats-filter-select h-11 rounded-md border border-white/15 bg-[hsl(240_12%_12%)] px-3 text-white"
+            className="beats-filter-select h-11 rounded-full border border-border bg-card px-4 text-foreground"
           >
             <option value="">{HOME_COPY.CITY_ANY}</option>
             {DISCOVERY_CITIES.map((item) => (
@@ -170,7 +170,7 @@ export function HomeFeedControls({
                 category: event.target.value ? event.target.value : null,
               })
             }
-            className="beats-filter-select h-11 rounded-md border border-white/15 bg-[hsl(240_12%_12%)] px-3 text-white"
+            className="beats-filter-select h-11 rounded-full border border-border bg-card px-4 text-foreground"
           >
             <option value="">{HOME_COPY.CATEGORY_ANY}</option>
             {categories.map((item) => (
@@ -188,7 +188,7 @@ export function HomeFeedControls({
             onChange={(event) =>
               navigate({ when: parseWhenFilter(event.target.value) })
             }
-            className="beats-filter-select h-11 rounded-md border border-white/15 bg-[hsl(240_12%_12%)] px-3 text-white"
+            className="beats-filter-select h-11 rounded-full border border-border bg-card px-4 text-foreground"
           >
             {WHEN_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>

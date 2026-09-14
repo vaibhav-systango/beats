@@ -5,6 +5,8 @@ export const USER_ROUTES = {
   EVENT_TICKETS: (id: string) => `/events/${id.trim()}/tickets`,
   PAYMENT_RECEIPT: (paymentId: string) => `/payments/${paymentId.trim()}/receipt`,
   TICKET: (ticketId: string) => `/tickets/${ticketId.trim()}`,
+  MY_TICKETS: '/my-tickets',
+  WALLET: '/wallet',
   LOGIN: '/login',
   ONBOARDING: '/onboarding',
 } as const

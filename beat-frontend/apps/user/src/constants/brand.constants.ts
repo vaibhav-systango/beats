@@ -1,10 +1,14 @@
 export const BRAND_CONSTANTS = {
   NAME: 'Beats',
   NAME_UPPERCASE: 'BEATS',
-  TAGLINE_LINE_1: 'Where the city',
-  TAGLINE_LINE_2: 'comes alive.',
+  TAGLINE_LINE_1: 'Your city after',
+  TAGLINE_LINE_2: 'dark',
+  TAGLINE_LINE_3: ', tuned to your taste.',
   HERO_DESCRIPTION:
-    'The only ticketing platform you need for exclusive underground gigs, festivals, and live experiences.',
+    'Concerts, comedy, rooftop sets and underground raves — curated by the city, rewarded by Beats.',
+  LIVE_BADGE: 'Live tonight in your city',
+  EXPLORE_CTA: 'Explore events',
+  CREDITS_CTA: 'View Beat Credits',
   DEFAULT_TITLE: 'Beats — Event Ticketing Platform',
   TITLE_TEMPLATE: '%s | Beats',
   DEFAULT_DESCRIPTION:
@@ -50,6 +54,10 @@ export const PAGE_METADATA = {
 export const NAV_LABELS = {
   HOME: 'Home',
   EVENTS: 'Events',
+  DISCOVER: 'Discover',
+  SEARCH: 'Search',
+  MY_TICKETS: 'My Tickets',
+  WALLET: 'Wallet',
   SIGN_IN: 'Sign in',
   SIGN_OUT: 'Sign out',
 } as const
@@ -58,12 +66,14 @@ export const HOME_COPY = {
   SEARCH_PLACEHOLDER: 'Search events, artists, venues…',
   SEARCH_CTA: 'Search',
   CITIES_HEADING: 'Popular cities',
-  CATEGORIES_HEADING: 'Browse by category',
-  POPULAR_HEADING: 'Popular events',
+  CATEGORIES_HEADING: 'Browse by vibe',
+  CATEGORIES_SUBHEADING: 'From sufi to techno — pick your night.',
+  POPULAR_HEADING: 'Top trending',
+  POPULAR_SUBHEADING: "The shows everyone's talking about",
   FEED_HEADING: 'Near you',
   POPULAR_EMPTY: 'No published events yet. Check back soon.',
   FEED_EMPTY: 'No events match this city, date, or location.',
-  VIEW_ALL_EVENTS: 'View all events',
+  VIEW_ALL_EVENTS: 'See all',
   CITY_LABEL: 'City',
   CITY_ANY: 'Any city',
   CATEGORY_LABEL: 'Category',
@@ -84,18 +94,31 @@ export const HOME_COPY = {
   EXPLORE_MORE: 'Explore more',
   RESULTS_FOR: 'Events in',
   CLEAR_FILTERS: 'Clear filters',
+  STAT_SHOWS: 'Shows tonight',
+  STAT_VENUES: 'Venues',
+  STAT_CITIES: 'Cities',
 } as const
 
 export const EVENTS_COPY = {
-  SEARCH_PLACEHOLDER: 'Search events…',
+  TITLE: 'Find your show',
+  SUBTITLE: 'Search by artist, venue or vibe.',
+  SEARCH_PLACEHOLDER: "Try 'KSHMR', 'Comedy', 'Sufi Nights'...",
   EMPTY: 'No events match your filters.',
+  RESULTS_FOUND: 'events found',
   FILTER_ALL: 'All',
   FILTER_THIS_WEEK: 'This week',
   FILTER_THIS_WEEKEND: 'This weekend',
   FILTER_TONIGHT: 'Tonight',
+  WHEN_LABEL: 'When',
+  WHEN_ANY: 'Any date',
+  WHEN_TODAY: 'Today',
+  WHEN_TOMORROW: 'Tomorrow',
+  WHEN_WEEKEND: 'This weekend',
+  GENRE_LABEL: 'Genre',
   PRICE_LABEL: 'Price (₹)',
   PRICE_MIN: 'Min',
   PRICE_MAX: 'Max',
+  MAX_PRICE: 'Max price',
   VENUE_TYPE_LABEL: 'Venue type',
   VENUE_ANY: 'Any',
   VENUE_OFFLINE: 'In person',
@@ -200,9 +223,9 @@ export const TICKET_SCAN_COPY = {
 } as const
 
 export const ONBOARDING_COPY = {
-  title: 'Set up your vibe',
-  description: 'Tell us who you are so we can show you the best events.',
-  submitLabel: 'Complete setup',
+  title: 'Tell us what you love',
+  description: "We'll curate events that match your vibe.",
+  submitLabel: 'Finish setup',
 } as const
 
 export const FALLBACK_CATEGORIES = [
