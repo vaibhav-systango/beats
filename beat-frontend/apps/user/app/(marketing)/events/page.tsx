@@ -1,7 +1,7 @@
 import { fetchEvents, PAGINATION_CONSTANTS } from '@beat/api-client'
 
 import { EventCard, EventsBrowseToolbar } from '@/components'
-import { EVENTS_COPY, NAV_LABELS, PAGE_METADATA } from '@/constants'
+import { EVENTS_COPY, PAGE_METADATA } from '@/constants'
 import {
   createPageMetadata,
   filterEventsByWhen,
@@ -82,11 +82,11 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   const filtered = filterEventsByWhen(events.data, when)
 
   return (
-    <section className="mx-auto max-w-6xl px-6 py-12">
-      <h1 className="mb-2 text-3xl font-bold text-foreground">{NAV_LABELS.EVENTS}</h1>
-      <p className="mb-8 text-muted-foreground">
-        Search and filter live experiences near you.
-      </p>
+    <section className="mx-auto max-w-7xl px-6 py-12">
+      <h1 className="mb-2 text-4xl font-bold tracking-tight text-foreground">
+        {EVENTS_COPY.TITLE}
+      </h1>
+      <p className="mb-8 text-muted-foreground">{EVENTS_COPY.SUBTITLE}</p>
 
       <EventsBrowseToolbar
         q={q}
@@ -99,16 +99,17 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
         distanceKm={distanceKm}
         lat={lat}
         lng={lng}
+        resultCount={filtered.length}
       />
 
       {filtered.length === 0 ? (
-        <p className="rounded-lg border border-border bg-card px-4 py-10 text-center text-muted-foreground">
+        <p className="rounded-3xl border border-border bg-card px-4 py-12 text-center text-muted-foreground">
           {EVENTS_COPY.EMPTY}
         </p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((event) => (
-            <EventCard key={event.id} event={event} />
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filtered.map((event, index) => (
+            <EventCard key={event.id} event={event} trending={index === 0} />
           ))}
         </div>
       )}
