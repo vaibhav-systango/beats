@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+import { ThemeToggle } from '@/components/ThemeToggle/ThemeToggle'
 import { BRAND_CONSTANTS, NAV_LABELS, USER_ROUTES } from '@/constants'
 import { useAuthStore } from '@/store/auth.store'
 
@@ -25,8 +26,8 @@ function NavLink({
       href={href}
       className={
         active
-          ? 'rounded-full bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
-          : 'rounded-full px-3.5 py-1.5 text-sm text-white/65 transition-colors hover:bg-white/5 hover:text-white'
+          ? 'rounded-full bg-secondary px-3.5 py-1.5 text-sm font-semibold text-foreground'
+          : 'rounded-full px-3.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground'
       }
     >
       {children}
@@ -58,56 +59,73 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40">
-      <div className="border-b border-white/10 bg-[hsl(240_16%_5%/0.78)] backdrop-blur-xl">
-        <nav className="flex w-full items-center justify-between gap-4 px-6 py-3.5">
-          <Link
-            href={USER_ROUTES.HOME}
-            className="group flex items-center gap-2.5"
-          >
-            <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary via-primary to-accent shadow-[0_0_24px_-6px_hsl(var(--primary)/0.8)]">
-              <span className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,_white/35,_transparent_55%)]" />
-              <span className="relative text-sm font-black tracking-tight text-white">
-                B
+      <div className="border-b border-border/70 bg-background/80 backdrop-blur-xl">
+        <nav className="flex w-full items-center justify-between gap-4 px-6 py-3.5 sm:px-8 lg:px-10">
+          <div className="flex min-w-0 items-center gap-4">
+            <Link
+              href={USER_ROUTES.HOME}
+              className="group flex items-center gap-2.5"
+            >
+              <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-cyan-400 via-primary to-violet-500 shadow-[0_0_20px_-6px_hsl(var(--primary)/0.7)]">
+                <span className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,_white/40,_transparent_55%)]" />
+                <span className="relative text-sm font-black tracking-tight text-white">
+                  b
+                </span>
               </span>
+              <span className="text-lg font-bold tracking-tight text-foreground">
+                {BRAND_CONSTANTS.NAME.toLowerCase()}
+              </span>
+            </Link>
+
+            <span className="hidden items-center gap-1.5 text-sm text-muted-foreground sm:inline-flex">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-3.5 w-3.5 text-primary"
+                aria-hidden
+              >
+                <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              Mumbai
             </span>
-            <span className="flex flex-col leading-none">
-              <span className="text-lg font-bold tracking-tight text-white transition-colors group-hover:text-primary">
-                {BRAND_CONSTANTS.NAME}
-              </span>
-              <span className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.22em] text-white/45">
-                Live city nights
-              </span>
-            </span>
-          </Link>
+          </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1 sm:flex">
-              <NavLink href={USER_ROUTES.HOME}>{NAV_LABELS.HOME}</NavLink>
-              <NavLink href={USER_ROUTES.EVENTS}>{NAV_LABELS.EVENTS}</NavLink>
+            <div className="hidden items-center gap-0.5 md:flex">
+              <NavLink href={USER_ROUTES.HOME}>{NAV_LABELS.DISCOVER}</NavLink>
+              <NavLink href={USER_ROUTES.EVENTS}>{NAV_LABELS.SEARCH}</NavLink>
+              <NavLink href={USER_ROUTES.MY_TICKETS}>{NAV_LABELS.MY_TICKETS}</NavLink>
+              <NavLink href={USER_ROUTES.WALLET}>{NAV_LABELS.WALLET}</NavLink>
             </div>
 
-            <div className="flex items-center gap-1 sm:hidden">
-              <NavLink href={USER_ROUTES.HOME}>{NAV_LABELS.HOME}</NavLink>
-              <NavLink href={USER_ROUTES.EVENTS}>{NAV_LABELS.EVENTS}</NavLink>
-            </div>
+            <ThemeToggle />
 
             {!isReady ? (
-              <div className="h-10 w-28 animate-pulse rounded-full bg-white/10" aria-hidden />
+              <div
+                className="h-10 w-24 animate-pulse rounded-full bg-secondary"
+                aria-hidden
+              />
             ) : isAuthenticated ? (
-              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] py-1 pl-1 pr-1.5 sm:pr-2">
+              <div className="flex items-center gap-2 rounded-full border border-border bg-card py-1 pl-1 pr-1.5 sm:pr-2">
                 <span
                   aria-hidden
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/90 to-accent/80 text-xs font-bold text-white"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-violet-500 text-xs font-bold text-white"
                 >
                   {initials || 'U'}
                 </span>
-                <span className="hidden max-w-[8.5rem] truncate text-sm font-medium text-white/90 sm:inline">
+                <span className="hidden max-w-[8.5rem] truncate text-sm font-medium text-foreground sm:inline">
                   {displayName}
                 </span>
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="rounded-full px-2.5 py-1.5 text-xs font-medium text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                  className="rounded-full px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                 >
                   {NAV_LABELS.SIGN_OUT}
                 </button>
@@ -115,7 +133,7 @@ export function Navbar() {
             ) : (
               <Link
                 href={USER_ROUTES.LOGIN}
-                className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-[0_8px_24px_-10px_hsl(var(--primary)/0.9)] transition hover:bg-primary/90"
+                className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-[0_10px_28px_-12px_hsl(var(--primary)/0.9)] transition hover:brightness-110"
               >
                 {NAV_LABELS.SIGN_IN}
               </Link>
@@ -123,10 +141,6 @@ export function Navbar() {
           </div>
         </nav>
       </div>
-      <div
-        aria-hidden
-        className="h-px w-full bg-gradient-to-r from-transparent via-primary/50 to-transparent"
-      />
     </header>
   )
 }
