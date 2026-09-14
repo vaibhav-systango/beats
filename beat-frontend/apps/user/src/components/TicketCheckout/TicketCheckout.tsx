@@ -644,7 +644,7 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
             )}
           </div>
 
-          <div className="sticky bottom-4 mt-8 rounded-lg border border-border bg-background/95 p-4 shadow-lg backdrop-blur">
+          <div className="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">{EVENT_TICKETS_COPY.TOTAL}</p>
@@ -831,7 +831,7 @@ export function TicketCheckout({ eventId }: TicketCheckoutProps) {
             ) : null}
           </div>
 
-          <div className="sticky bottom-4 rounded-lg border border-border bg-background/95 p-4 shadow-lg backdrop-blur">
+          <div className="mt-2 rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">{EVENT_TICKETS_COPY.TOTAL}</p>
